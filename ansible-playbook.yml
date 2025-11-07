@@ -1,0 +1,133 @@
+---
+- name: Deploy Invoice Application with Docker
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  
+  vars:
+    project_dir: "{{ playbook_dir }}"
+    backend_image: invoice-backend:latest
+    frontend_image: invoice-frontend:latest
+    backend_container: invoice-backend
+    frontend_container: invoice-frontend
+    network_name: invoice-network
+    volume_name: invoice_db_data
+    jwt_secret: "dev-secret-key-change-in-production"
+    secret_key: "dev-secret-key-change-in-production"
+
+  tasks:
+    - name: Ensure Docker is installed and running
+      community.docker.docker_host_info:
+      register: docker_info
+      failed_when: false
+
+    - name: Display Docker info
+      debug:
+        msg: "Docker is running with version {{ docker_info.host_info.ServerVersion | default('unknown') }}"
+
+    - name: Create Docker network if it doesn't exist
+      community.docker.docker_network:
+        name: "{{ network_name }}"
+        driver: bridge
+        state: present
+
+    - name: Create Docker volume for database persistence
+      community.docker.docker_volume:
+        name: "{{ volume_name }}"
+        state: present
+
+    - name: Build backend Docker image
+      community.docker.docker_image:
+        name: "{{ backend_image }}"
+        build:
+          path: "{{ project_dir }}"
+          dockerfile: src/backend/Dockerfile
+        source: build
+        state: present
+        force_source: yes
+
+    - name: Build frontend Docker image
+      community.docker.docker_image:
+        name: "{{ frontend_image }}"
+        build:
+          path: "{{ project_dir }}"
+          dockerfile: src/frontend/Dockerfile
+        source: build
+        state: present
+        force_source: yes
+
+    - name: Stop and remove existing backend container
+      community.docker.docker_container:
+        name: "{{ backend_container }}"
+        state: absent
+
+    - name: Stop and remove existing frontend container
+      community.docker.docker_container:
+        name: "{{ frontend_container }}"
+        state: absent
+
+    - name: Start backend container
+      community.docker.docker_container:
+        name: "{{ backend_container }}"
+        image: "{{ backend_image }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "5001:5001"
+        env:
+          DATABASE_URL: "sqlite:///instance/invoice_app.db"
+          JWT_SECRET_KEY: "{{ jwt_secret }}"
+          SECRET_KEY: "{{ secret_key }}"
+        volumes:
+          - "{{ volume_name }}:/app/instance"
+        networks:
+          - name: "{{ network_name }}"
+
+    - name: Wait for backend health check
+      uri:
+        url: "http://localhost:5001/api/health"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Start frontend container
+      community.docker.docker_container:
+        name: "{{ frontend_container }}"
+        image: "{{ frontend_image }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "3000:3000"
+        env:
+          REACT_APP_API_URL: "http://{{ backend_container }}:5001/api"
+        networks:
+          - name: "{{ network_name }}"
+
+    - name: Wait for frontend to be ready
+      wait_for:
+        port: 3000
+        host: localhost
+        timeout: 60
+
+    - name: Verify backend health endpoint
+      uri:
+        url: "http://localhost:5001/api/health"
+        method: GET
+      register: health_check
+      failed_when: health_check.status != 200
+
+    - name: Display deployment success message
+      debug:
+        msg:
+          - "=========================================="
+          - "Invoice Application Deployed Successfully!"
+          - "=========================================="
+          - "Backend API: http://localhost:5001"
+          - "Backend Health: http://localhost:5001/api/health"
+          - "Frontend UI: http://localhost:3000"
+          - "=========================================="
+          - "Database persisted in volume: {{ volume_name }}"
+          - "Network: {{ network_name }}"
+          - "=========================================="
