@@ -40,6 +40,8 @@ class Invoice(db.Model):
     customer_name = db.Column(db.String(200), nullable=False)
     customer_email = db.Column(db.String(120))
     customer_address = db.Column(db.Text)
+    owner = db.Column(db.String(200))  # Invoice owner name
+    billable_email = db.Column(db.String(120))  # Email for billing notifications
     
     # Invoice details
     issue_date = db.Column(db.Date, nullable=False, default=datetime.utcnow().date())
@@ -72,6 +74,8 @@ class Invoice(db.Model):
             'customer_name': self.customer_name,
             'customer_email': self.customer_email,
             'customer_address': self.customer_address,
+            'owner': self.owner,
+            'billable_email': self.billable_email,
             'issue_date': self.issue_date.isoformat(),
             'due_date': self.due_date.isoformat(),
             'status': self.status,

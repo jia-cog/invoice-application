@@ -68,6 +68,15 @@ components:
         customer_address:
           type: string
           example: "123 Main St, City, State 12345"
+        owner:
+          type: string
+          description: Invoice owner name
+          example: "John Smith"
+        billable_email:
+          type: string
+          format: email
+          description: Email for billing notifications
+          example: "billing@abccompany.com"
         issue_date:
           type: string
           format: date
@@ -525,6 +534,15 @@ paths:
                 customer_address:
                   type: string
                   example: "123 Main St, City, State 12345"
+                owner:
+                  type: string
+                  description: Invoice owner name
+                  example: "John Smith"
+                billable_email:
+                  type: string
+                  format: email
+                  description: Email for billing notifications
+                  example: "billing@abccompany.com"
                 due_date:
                   type: string
                   format: date
@@ -663,6 +681,15 @@ paths:
                 customer_address:
                   type: string
                   example: "123 Main St, City, State 12345"
+                owner:
+                  type: string
+                  description: Invoice owner name
+                  example: "John Smith"
+                billable_email:
+                  type: string
+                  format: email
+                  description: Email for billing notifications
+                  example: "billing@abccompany.com"
                 due_date:
                   type: string
                   format: date

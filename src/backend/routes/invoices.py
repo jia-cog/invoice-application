@@ -58,6 +58,8 @@ def create_invoice():
             customer_name=data['customer_name'],
             customer_email=data.get('customer_email', ''),
             customer_address=data.get('customer_address', ''),
+            owner=data.get('owner', ''),
+            billable_email=data.get('billable_email', ''),
             due_date=datetime.strptime(data['due_date'], '%Y-%m-%d').date(),
             tax_rate=data.get('tax_rate', 0.0),
             notes=data.get('notes', ''),
@@ -114,6 +116,10 @@ def update_invoice(invoice_id):
             invoice.customer_email = data['customer_email']
         if 'customer_address' in data:
             invoice.customer_address = data['customer_address']
+        if 'owner' in data:
+            invoice.owner = data['owner']
+        if 'billable_email' in data:
+            invoice.billable_email = data['billable_email']
         if 'due_date' in data:
             invoice.due_date = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
         if 'tax_rate' in data:
