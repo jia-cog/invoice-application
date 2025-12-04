@@ -33,8 +33,11 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        # Create access token with audience claim containing user's email
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={'aud': user.email}
+        )
         
         return jsonify({
             'message': 'User created successfully',
@@ -60,8 +63,11 @@ def login():
         if not user or not user.check_password(data['password']):
             return jsonify({'error': 'Invalid credentials'}), 401
         
-        # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        # Create access token with audience claim containing user's email
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={'aud': user.email}
+        )
         
         return jsonify({
             'message': 'Login successful',
