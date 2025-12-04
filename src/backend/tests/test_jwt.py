@@ -35,7 +35,7 @@ class TestJWTAuthentication(unittest.TestCase):
     def test_create_access_token_with_string_identity(self):
         """Test that access tokens can be created with string identity."""
         test_user_id = "123"
-        token = create_access_token(identity=test_user_id)
+        token = create_access_token(identity=test_user_id, additional_claims={"aud": "XYZ"})
         
         self.assertIsNotNone(token)
         self.assertIsInstance(token, str)
@@ -44,7 +44,7 @@ class TestJWTAuthentication(unittest.TestCase):
     def test_create_access_token_with_integer_converted_to_string(self):
         """Test that integer user IDs are properly converted to strings."""
         test_user_id = 123
-        token = create_access_token(identity=str(test_user_id))
+        token = create_access_token(identity=str(test_user_id), additional_claims={"aud": "XYZ"})
         
         self.assertIsNotNone(token)
         self.assertIsInstance(token, str)
@@ -53,7 +53,7 @@ class TestJWTAuthentication(unittest.TestCase):
     def test_decode_token_success(self):
         """Test successful token decoding."""
         test_user_id = "456"
-        token = create_access_token(identity=test_user_id)
+        token = create_access_token(identity=test_user_id, additional_claims={"aud": "XYZ"})
         
         decoded = decode_token(token)
         
@@ -65,7 +65,7 @@ class TestJWTAuthentication(unittest.TestCase):
     def test_token_identity_consistency(self):
         """Test that the identity in the token matches what was provided."""
         test_user_id = "789"
-        token = create_access_token(identity=test_user_id)
+        token = create_access_token(identity=test_user_id, additional_claims={"aud": "XYZ"})
         decoded = decode_token(token)
         
         # The subject should match our original user ID
@@ -77,7 +77,7 @@ class TestJWTAuthentication(unittest.TestCase):
         tokens = []
         
         for user_id in user_ids:
-            token = create_access_token(identity=user_id)
+            token = create_access_token(identity=user_id, additional_claims={"aud": "XYZ"})
             tokens.append(token)
             
             # Verify each token is unique
@@ -90,7 +90,7 @@ class TestJWTAuthentication(unittest.TestCase):
     def test_token_contains_required_claims(self):
         """Test that tokens contain all required JWT claims."""
         test_user_id = "999"
-        token = create_access_token(identity=test_user_id)
+        token = create_access_token(identity=test_user_id, additional_claims={"aud": "XYZ"})
         decoded = decode_token(token)
         
         # Check for standard JWT claims
