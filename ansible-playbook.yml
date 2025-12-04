@@ -1,0 +1,142 @@
+---
+# Ansible Playbook for Invoice Application Deployment
+# Jira Ticket: JIA-4
+# This playbook deploys the Invoice Application using Docker containers
+
+- name: Deploy Invoice Application
+  hosts: localhost
+  connection: local
+  become: false
+  
+  vars:
+    app_name: invoice-application
+    backend_image: invoice-backend
+    frontend_image: invoice-frontend
+    backend_port: 5001
+    frontend_port: 3000
+    network_name: invoice-network
+    volume_name: invoice-data
+    jwt_secret_key: "{{ lookup('env', 'JWT_SECRET_KEY') | default('change-this-in-production', true) }}"
+    secret_key: "{{ lookup('env', 'SECRET_KEY') | default('change-this-in-production', true) }}"
+    database_url: "sqlite:////app/instance/invoice_app.db"
+    project_root: "{{ playbook_dir }}"
+
+  tasks:
+    - name: Ensure Docker is running
+      ansible.builtin.command: docker info
+      register: docker_info
+      changed_when: false
+      failed_when: docker_info.rc != 0
+
+    - name: Create Docker network for application
+      community.docker.docker_network:
+        name: "{{ network_name }}"
+        state: present
+
+    - name: Create Docker volume for SQLite persistence
+      community.docker.docker_volume:
+        name: "{{ volume_name }}"
+        state: present
+
+    - name: Build backend Docker image
+      community.docker.docker_image:
+        name: "{{ backend_image }}"
+        tag: latest
+        source: build
+        build:
+          path: "{{ project_root }}"
+          dockerfile: src/backend/Dockerfile
+        state: present
+        force_source: true
+
+    - name: Build frontend Docker image
+      community.docker.docker_image:
+        name: "{{ frontend_image }}"
+        tag: latest
+        source: build
+        build:
+          path: "{{ project_root }}/src/frontend"
+          dockerfile: Dockerfile
+        state: present
+        force_source: true
+
+    - name: Stop and remove existing backend container if present
+      community.docker.docker_container:
+        name: "{{ backend_image }}"
+        state: absent
+
+    - name: Deploy backend container
+      community.docker.docker_container:
+        name: "{{ backend_image }}"
+        image: "{{ backend_image }}:latest"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ backend_port }}:{{ backend_port }}"
+        env:
+          DATABASE_URL: "{{ database_url }}"
+          JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+          SECRET_KEY: "{{ secret_key }}"
+        volumes:
+          - "{{ volume_name }}:/app/instance"
+        networks:
+          - name: "{{ network_name }}"
+        healthcheck:
+          test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/health')"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 10s
+
+    - name: Wait for backend to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ backend_port }}/api/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      until: health_check.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Stop and remove existing frontend container if present
+      community.docker.docker_container:
+        name: "{{ frontend_image }}"
+        state: absent
+
+    - name: Deploy frontend container
+      community.docker.docker_container:
+        name: "{{ frontend_image }}"
+        image: "{{ frontend_image }}:latest"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ frontend_port }}:{{ frontend_port }}"
+        env:
+          REACT_APP_API_URL: "http://localhost:{{ backend_port }}/api"
+        networks:
+          - name: "{{ network_name }}"
+
+    - name: Wait for frontend to be available
+      ansible.builtin.uri:
+        url: "http://localhost:{{ frontend_port }}"
+        method: GET
+        status_code: 200
+      register: frontend_check
+      until: frontend_check.status == 200
+      retries: 20
+      delay: 5
+
+    - name: Verify backend health check endpoint
+      ansible.builtin.uri:
+        url: "http://localhost:{{ backend_port }}/api/health"
+        method: GET
+        return_content: true
+      register: backend_health
+
+    - name: Display deployment status
+      ansible.builtin.debug:
+        msg:
+          - "Invoice Application deployed successfully!"
+          - "Backend API: http://localhost:{{ backend_port }}/api"
+          - "Frontend: http://localhost:{{ frontend_port }}"
+          - "Backend health: {{ backend_health.json }}"
