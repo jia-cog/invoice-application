@@ -28,7 +28,8 @@ COPY src/backend/ .
 RUN mkdir -p /app/instance
 
 # Set default environment variables for production
-ENV DATABASE_URL=sqlite:///instance/invoice_app.db
+# Use absolute path for SQLite database to work with Docker volumes
+ENV DATABASE_URL=sqlite:////app/instance/invoice_app.db
 ENV JWT_SECRET_KEY=change-this-in-production
 ENV SECRET_KEY=change-this-in-production
 

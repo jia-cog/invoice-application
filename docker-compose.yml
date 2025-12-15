@@ -9,7 +9,7 @@ services:
     ports:
       - "5001:5001"
     environment:
-      - DATABASE_URL=sqlite:///instance/invoice_app.db
+      - DATABASE_URL=sqlite:////app/instance/invoice_app.db
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-in-production}
       - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
     volumes:

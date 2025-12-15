@@ -74,7 +74,7 @@
         ports:
           - "{{ backend_port }}:{{ backend_port }}"
         env:
-          DATABASE_URL: "sqlite:///instance/invoice_app.db"
+          DATABASE_URL: "sqlite:////app/instance/invoice_app.db"
           JWT_SECRET_KEY: "{{ jwt_secret_key }}"
           SECRET_KEY: "{{ secret_key }}"
         volumes:
