@@ -9,7 +9,8 @@ tests/
 ├── __init__.py          # Makes tests a Python package
 ├── README.md           # This file
 ├── run_tests.py        # Test runner script
-└── test_jwt.py         # JWT authentication tests
+├── test_jwt.py         # JWT authentication tests
+└── test_invoices.py    # Invoice API routes tests
 ```
 
 ## Running Tests
@@ -40,6 +41,49 @@ python3 -m unittest discover tests -v
 - Token decoding and validation
 - Token identity consistency
 - Required JWT claims verification
+- Invalid token handling
+
+### Invoice API Routes Tests (`test_invoices.py`)
+Tests for all 5 invoice API endpoints with comprehensive coverage:
+
+**GET /api/invoices/ (List Invoices)**
+- Successfully retrieve invoices for authenticated user
+- Return empty list when no invoices exist
+- Verify user isolation (users only see their own invoices)
+- Reject requests without authentication
+
+**GET /api/invoices/<id> (Get Single Invoice)**
+- Successfully retrieve invoice by ID
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Reject requests without authentication
+
+**POST /api/invoices/ (Create Invoice)**
+- Successfully create invoice with valid data
+- Return 400 for missing required fields (customer_name, due_date, items)
+- Return 400 for invalid item data (missing description, quantity, unit_price)
+- Verify unique invoice number generation
+- Verify invoice/item totals calculation
+- Test default and custom status values
+- Reject requests without authentication
+
+**PUT /api/invoices/<id> (Update Invoice)**
+- Successfully update invoice fields
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Verify item updates and totals recalculation
+- Test partial field updates
+- Reject requests without authentication
+
+**DELETE /api/invoices/<id> (Delete Invoice)**
+- Successfully delete invoice
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Verify cascade deletion of invoice items
+- Reject requests without authentication
+
+**User Isolation & Authentication**
+- Comprehensive user isolation testing
 - Invalid token handling
 
 ## Adding New Tests
