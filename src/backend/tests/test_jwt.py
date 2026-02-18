@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token, decode_token, get_jwt_identity
 from config import Config
+from models import VALID_USER_GROUPS
 
 
 class TestJWTAuthentication(unittest.TestCase):
@@ -88,15 +89,33 @@ class TestJWTAuthentication(unittest.TestCase):
             self.assertEqual(decoded['sub'], user_id)
     
     def test_token_contains_required_claims(self):
-        """Test that tokens contain all required JWT claims."""
+        """Test that tokens contain all required JWT claims including user_group."""
         test_user_id = "999"
-        token = create_access_token(identity=test_user_id)
+        token = create_access_token(
+            identity=test_user_id,
+            additional_claims={'user_group': 'user'}
+        )
         decoded = decode_token(token)
         
-        # Check for standard JWT claims
-        required_claims = ['sub', 'iat', 'exp', 'jti', 'type']
+        required_claims = ['sub', 'iat', 'exp', 'jti', 'type', 'user_group']
         for claim in required_claims:
             self.assertIn(claim, decoded, f"Missing required claim: {claim}")
+    
+    def test_token_user_group_value(self):
+        """Test that user_group claim contains the correct value."""
+        for group in VALID_USER_GROUPS:
+            token = create_access_token(
+                identity="100",
+                additional_claims={'user_group': group}
+            )
+            decoded = decode_token(token)
+            self.assertEqual(decoded['user_group'], group)
+    
+    def test_token_without_user_group_missing_claim(self):
+        """Test that tokens created without user_group lack the claim."""
+        token = create_access_token(identity="100")
+        decoded = decode_token(token)
+        self.assertNotIn('user_group', decoded)
     
     def test_invalid_token_handling(self):
         """Test handling of invalid tokens."""

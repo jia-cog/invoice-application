@@ -5,12 +5,15 @@ import json
 
 db = SQLAlchemy()
 
+VALID_USER_GROUPS = ['admin', 'manager', 'user']
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     company_name = db.Column(db.String(200))
+    user_group = db.Column(db.String(50), nullable=False, default='user')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationship with invoices
@@ -28,6 +31,7 @@ class User(db.Model):
             'username': self.username,
             'email': self.email,
             'company_name': self.company_name,
+            'user_group': self.user_group,
             'created_at': self.created_at.isoformat()
         }
 
