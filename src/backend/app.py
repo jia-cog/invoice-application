@@ -51,7 +51,7 @@ def create_app():
         print(f"JWT Error: Missing token. Error: {error}")
         return jsonify({'error': 'Authorization token is required'}), 401
     
-    @jwt.additional_claims_verification_loader
+    @jwt.token_verification_loader
     def verify_user_group_claim(jwt_header, jwt_data):
         user_group = jwt_data.get('user_group')
         if user_group is None:
