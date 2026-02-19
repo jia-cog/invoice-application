@@ -1,8 +1,12 @@
-from flask import Blueprint, request, jsonify
+import csv
+import io
+import uuid
+import zipfile
+
+from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date
 from models import db, Invoice, InvoiceItem, User
-import uuid
 
 invoices_bp = Blueprint('invoices', __name__)
 
@@ -152,6 +156,79 @@ def update_invoice(invoice_id):
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@invoices_bp.route('/bulk-download', methods=['POST'])
+@jwt_required()
+def bulk_download_invoices():
+    try:
+        user_id = int(get_jwt_identity())
+        data = request.get_json()
+
+        if not data or not data.get('invoice_ids'):
+            return jsonify({'error': 'invoice_ids is required'}), 400
+
+        invoice_ids = data['invoice_ids']
+        if not isinstance(invoice_ids, list) or len(invoice_ids) == 0:
+            return jsonify({'error': 'invoice_ids must be a non-empty list'}), 400
+
+        invoices = Invoice.query.filter(
+            Invoice.id.in_(invoice_ids),
+            Invoice.user_id == user_id
+        ).all()
+
+        if not invoices:
+            return jsonify({'error': 'No invoices found for the given IDs'}), 404
+
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for invoice in invoices:
+                csv_buffer = io.StringIO()
+                writer = csv.writer(csv_buffer)
+
+                writer.writerow(['Invoice Details'])
+                writer.writerow(['Invoice Number', invoice.invoice_number])
+                writer.writerow(['Status', invoice.status])
+                writer.writerow(['Issue Date', invoice.issue_date.isoformat()])
+                writer.writerow(['Due Date', invoice.due_date.isoformat()])
+                writer.writerow([])
+                writer.writerow(['Customer Information'])
+                writer.writerow(['Name', invoice.customer_name])
+                writer.writerow(['Email', invoice.customer_email or ''])
+                writer.writerow(['Address', invoice.customer_address or ''])
+                writer.writerow([])
+                writer.writerow(['Items'])
+                writer.writerow(['Description', 'Quantity', 'Unit Price', 'Total'])
+                for item in invoice.items:
+                    writer.writerow([
+                        item.description,
+                        item.quantity,
+                        item.unit_price,
+                        item.total
+                    ])
+                writer.writerow([])
+                writer.writerow(['Financial Summary'])
+                writer.writerow(['Subtotal', invoice.subtotal])
+                writer.writerow(['Tax Rate (%)', invoice.tax_rate])
+                writer.writerow(['Tax Amount', invoice.tax_amount])
+                writer.writerow(['Total Amount', invoice.total_amount])
+                if invoice.notes:
+                    writer.writerow([])
+                    writer.writerow(['Notes', invoice.notes])
+
+                filename = f"{invoice.invoice_number}.csv"
+                zf.writestr(filename, csv_buffer.getvalue())
+
+        zip_buffer.seek(0)
+
+        return send_file(
+            zip_buffer,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name='invoices.zip'
+        )
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['DELETE'])
