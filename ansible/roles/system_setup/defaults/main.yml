@@ -1,0 +1,26 @@
+---
+system_packages:
+  - build-essential
+  - git
+  - curl
+  - wget
+  - software-properties-common
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - libpq-dev
+  - python3-dev
+
+python_packages:
+  - python3
+  - python3-pip
+  - python3-venv
+
+app_directories:
+  - "{{ app_base_dir }}"
+  - "{{ app_base_dir }}/src"
+  - "{{ app_base_dir }}/src/backend"
+  - "{{ app_base_dir }}/src/frontend"
+  - "{{ app_base_dir }}/logs"
+  - "{{ app_base_dir }}/backups"

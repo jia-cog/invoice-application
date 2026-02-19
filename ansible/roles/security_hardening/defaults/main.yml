@@ -1,0 +1,24 @@
+---
+enable_ssl: false
+enable_firewall: true
+
+ssl_email: "admin@{{ app_domain }}"
+ssl_certificate_path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+ssl_private_key_path: "/etc/letsencrypt/live/{{ app_domain }}/privkey.pem"
+
+firewall_allowed_ports:
+  - { port: 22, proto: tcp }
+  - { port: 80, proto: tcp }
+  - { port: 443, proto: tcp }
+
+sysctl_hardening:
+  net.ipv4.ip_forward: 0
+  net.ipv4.conf.all.send_redirects: 0
+  net.ipv4.conf.default.send_redirects: 0
+  net.ipv4.conf.all.accept_redirects: 0
+  net.ipv4.conf.default.accept_redirects: 0
+  net.ipv4.conf.all.log_martians: 1
+
+certbot_auto_renew: true
+certbot_renew_cron_hour: 3
+certbot_renew_cron_minute: 30

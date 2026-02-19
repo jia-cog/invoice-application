@@ -1,0 +1,14 @@
+---
+db_engine: postgresql
+db_host: localhost
+db_port: 5432
+db_name: invoice_app
+db_user: invoice_app
+
+postgresql_version: "16"
+postgresql_data_dir: "/var/lib/postgresql/{{ postgresql_version }}/main"
+postgresql_config_dir: "/etc/postgresql/{{ postgresql_version }}/main"
+
+db_backup_enabled: true
+db_backup_dir: "{{ app_base_dir }}/backups/db"
+db_backup_retention_days: 30

@@ -1,0 +1,151 @@
+---
+- name: Validate that production secrets are not using defaults
+  ansible.builtin.assert:
+    that:
+      - jwt_secret_key != 'your-secret-key-change-in-production'
+      - flask_secret_key != 'your-secret-key-change-in-production'
+      - jwt_secret_key | length >= 32
+      - flask_secret_key | length >= 32
+    fail_msg: >
+      SECURITY ERROR: Production secrets must be changed from defaults and be
+      at least 32 characters long. Generate secure values with:
+      python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+  when: app_env != 'development'
+
+- name: Ensure environment file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ app_backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+
+- name: Restrict backend directory permissions
+  ansible.builtin.file:
+    path: "{{ app_backend_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+    recurse: false
+
+- name: Restrict log directory permissions
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/logs"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Install UFW firewall
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  when: enable_firewall
+
+- name: Set UFW default incoming policy to deny
+  community.general.ufw:
+    direction: incoming
+    default: deny
+  when: enable_firewall
+
+- name: Set UFW default outgoing policy to allow
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+  when: enable_firewall
+
+- name: Allow configured firewall ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port | string }}"
+    proto: "{{ item.proto }}"
+  loop: "{{ firewall_allowed_ports }}"
+  when: enable_firewall
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  when: enable_firewall
+
+- name: Install certbot for SSL certificates
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+  when: enable_ssl
+
+- name: Check if SSL certificate already exists
+  ansible.builtin.stat:
+    path: "{{ ssl_certificate_path }}"
+  register: ssl_cert
+  when: enable_ssl
+
+- name: Obtain SSL certificate from Let's Encrypt
+  ansible.builtin.command:
+    cmd: >
+      certbot --nginx -d {{ app_domain }}
+      --non-interactive --agree-tos
+      --email {{ ssl_email }}
+      --redirect
+  changed_when: true
+  when:
+    - enable_ssl
+    - not ssl_cert.stat.exists
+  notify: Reload nginx
+
+- name: Set up certbot auto-renewal cron job
+  ansible.builtin.cron:
+    name: "Certbot SSL renewal"
+    minute: "{{ certbot_renew_cron_minute }}"
+    hour: "{{ certbot_renew_cron_hour }}"
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+  when:
+    - enable_ssl
+    - certbot_auto_renew
+
+- name: Apply sysctl hardening parameters
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop: "{{ sysctl_hardening | dict2items }}"
+  when: app_env == 'production'
+
+- name: Disable unnecessary services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - cups
+    - avahi-daemon
+  failed_when: false
+  when: app_env == 'production'
+
+- name: Set secure file permissions on sensitive config files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0600"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  loop:
+    - "{{ app_backend_dir }}/.env"
+    - "{{ app_backend_dir }}/gunicorn.conf.py"
+
+- name: Configure CORS for production domains
+  ansible.builtin.lineinfile:
+    path: "{{ backend_env_file }}"
+    regexp: "^CORS_ORIGINS="
+    line: "CORS_ORIGINS={{ cors_origins }}"
+  notify: Restart invoice-backend
+
+- name: Display security hardening summary
+  ansible.builtin.debug:
+    msg: |
+      Security hardening complete:
+        - Firewall: {{ 'enabled' if enable_firewall else 'disabled' }}
+        - SSL: {{ 'enabled' if enable_ssl else 'disabled' }}
+        - Secrets: validated (non-default, >= 32 chars)
+        - File permissions: restricted
+        - CORS: {{ cors_origins }}

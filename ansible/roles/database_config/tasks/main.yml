@@ -1,0 +1,102 @@
+---
+- name: Install PostgreSQL packages
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - libpq-dev
+      - python3-psycopg2
+    state: present
+
+- name: Ensure PostgreSQL service is running
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Configure PostgreSQL to listen on configured host
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_config_dir }}/postgresql.conf"
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = '{{ db_host }}'"
+  notify: Restart postgresql
+
+- name: Create application database user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    role_attr_flags: CREATEDB
+    state: present
+
+- name: Create application database
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+    encoding: UTF-8
+    lc_collate: en_US.UTF-8
+    lc_ctype: en_US.UTF-8
+    state: present
+
+- name: Grant all privileges on database to app user
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    database: "{{ db_name }}"
+    type: database
+    roles: "{{ db_user }}"
+    privs: ALL
+    state: present
+
+- name: Configure pg_hba for application user
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_config_dir }}/pg_hba.conf"
+    insertafter: "^# IPv4 local connections"
+    line: "host    {{ db_name }}    {{ db_user }}    127.0.0.1/32    md5"
+  notify: Restart postgresql
+
+- name: Create database backup directory
+  ansible.builtin.file:
+    path: "{{ db_backup_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+  when: db_backup_enabled
+
+- name: Set up database backup cron job
+  ansible.builtin.cron:
+    name: "Invoice app database backup"
+    minute: "0"
+    hour: "2"
+    job: >
+      pg_dump -h {{ db_host }} -U {{ db_user }} {{ db_name }}
+      | gzip > {{ db_backup_dir }}/invoice_app_$(date +\%Y\%m\%d_\%H\%M\%S).sql.gz
+    user: "{{ app_user }}"
+  when: db_backup_enabled
+
+- name: Set up backup cleanup cron job
+  ansible.builtin.cron:
+    name: "Invoice app backup cleanup"
+    minute: "0"
+    hour: "3"
+    job: "find {{ db_backup_dir }} -name '*.sql.gz' -mtime +{{ db_backup_retention_days }} -delete"
+    user: "{{ app_user }}"
+  when: db_backup_enabled
+
+- name: Flush handlers to apply PostgreSQL config changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify PostgreSQL connection
+  become: true
+  become_user: postgres
+  community.postgresql.postgresql_ping:
+    db: "{{ db_name }}"
+  register: db_ping
+
+- name: Display database connection status
+  ansible.builtin.debug:
+    msg: "PostgreSQL connection to {{ db_name }}: {{ 'OK' if db_ping.is_available else 'FAILED' }}"

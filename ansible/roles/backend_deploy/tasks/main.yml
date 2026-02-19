@@ -1,0 +1,113 @@
+---
+- name: Clone application repository
+  ansible.builtin.git:
+    repo: "{{ app_repo_url }}"
+    dest: "{{ app_base_dir }}"
+    version: "{{ app_repo_branch }}"
+    force: true
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv {{ app_venv_dir }}
+    creates: "{{ app_venv_dir }}/bin/activate"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Upgrade pip in virtual environment
+  ansible.builtin.pip:
+    name:
+      - pip
+      - setuptools
+      - wheel
+    state: present
+    virtualenv: "{{ app_venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Install Python dependencies
+  ansible.builtin.pip:
+    requirements: "{{ app_base_dir }}/requirements.txt"
+    virtualenv: "{{ app_venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Install gunicorn and psycopg2
+  ansible.builtin.pip:
+    name:
+      - gunicorn
+      - psycopg2-binary
+    state: present
+    virtualenv: "{{ app_venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Create backend environment file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ backend_env_file }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  notify: Restart invoice-backend
+
+- name: Create gunicorn configuration file
+  ansible.builtin.template:
+    src: gunicorn.conf.py.j2
+    dest: "{{ app_backend_dir }}/gunicorn.conf.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice-backend
+
+- name: Create systemd service file
+  ansible.builtin.template:
+    src: invoice-backend.service.j2
+    dest: /etc/systemd/system/invoice-backend.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart invoice-backend
+
+- name: Initialize database tables
+  ansible.builtin.command:
+    cmd: "{{ app_venv_dir }}/bin/python init_db.py"
+    chdir: "{{ app_backend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    DATABASE_URL: "postgresql://{{ db_user }}:{{ db_password }}@{{ db_host }}:{{ db_port }}/{{ db_name }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  register: db_init_result
+  changed_when: "'successfully' in db_init_result.stdout"
+
+- name: Display database initialization result
+  ansible.builtin.debug:
+    msg: "{{ db_init_result.stdout }}"
+
+- name: Flush handlers before starting service
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start invoice-backend service
+  ansible.builtin.systemd:
+    name: invoice-backend
+    state: started
+    enabled: true
+
+- name: Wait for backend to become available
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ backend_port }}/api/health"
+    method: GET
+    status_code: 200
+  register: backend_health
+  retries: 10
+  delay: 3
+  until: backend_health.status == 200
+
+- name: Display backend status
+  ansible.builtin.debug:
+    msg: "Backend is running: {{ backend_health.json }}"

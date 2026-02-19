@@ -1,0 +1,12 @@
+---
+backend_port: 5001
+gunicorn_workers: 3
+gunicorn_bind: "127.0.0.1:{{ backend_port }}"
+gunicorn_timeout: 120
+gunicorn_max_requests: 1000
+gunicorn_max_requests_jitter: 50
+gunicorn_log_level: info
+gunicorn_access_log: "{{ app_base_dir }}/logs/gunicorn-access.log"
+gunicorn_error_log: "{{ app_base_dir }}/logs/gunicorn-error.log"
+
+backend_env_file: "{{ app_backend_dir }}/.env"
