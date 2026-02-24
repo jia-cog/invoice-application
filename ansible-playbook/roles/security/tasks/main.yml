@@ -83,10 +83,10 @@
 # ---------------------------------------------------------------------------
 # CORS Configuration
 # ---------------------------------------------------------------------------
-- name: Deploy production CORS configuration override
+- name: Deploy production config.py with restricted CORS origins
   ansible.builtin.template:
-    src: cors_config.py.j2
-    dest: "{{ backend_dir }}/cors_config.py"
+    src: config_production.py.j2
+    dest: "{{ backend_dir }}/config.py"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0644"
