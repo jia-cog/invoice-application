@@ -9,7 +9,8 @@ tests/
 ├── __init__.py          # Makes tests a Python package
 ├── README.md           # This file
 ├── run_tests.py        # Test runner script
-└── test_jwt.py         # JWT authentication tests
+├── test_jwt.py         # JWT authentication tests
+└── test_invoices.py    # Invoice API route tests
 ```
 
 ## Running Tests
@@ -41,6 +42,50 @@ python3 -m unittest discover tests -v
 - Token identity consistency
 - Required JWT claims verification
 - Invalid token handling
+
+### Invoice API Route Tests (`test_invoices.py`)
+Comprehensive tests for all 5 invoice API endpoints:
+
+**GET /api/invoices/ (List Invoices)**
+- Successfully retrieve invoices for authenticated user
+- Return empty list when no invoices exist
+- Verify user isolation (users only see their own invoices)
+- Reject unauthenticated requests
+- Reject invalid JWT tokens
+
+**GET /api/invoices/<id> (Get Single Invoice)**
+- Successfully retrieve invoice by ID
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Verify invoice includes items in response
+- Reject unauthenticated requests
+
+**POST /api/invoices/ (Create Invoice)**
+- Successfully create invoice with valid data
+- Generate unique invoice number (INV-YYYYMMDD-UUID format)
+- Calculate totals correctly (subtotal, tax, total)
+- Return 400 for missing required fields (customer_name, due_date, items)
+- Return 400 for invalid item data (missing description, quantity, unit_price)
+- Default status to 'draft' when not specified
+- Reject unauthenticated requests
+
+**PUT /api/invoices/<id> (Update Invoice)**
+- Successfully update invoice fields
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Update items and recalculate totals
+- Support partial updates
+- Reject unauthenticated requests
+
+**DELETE /api/invoices/<id> (Delete Invoice)**
+- Successfully delete invoice
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Cascade delete associated invoice items
+- Reject unauthenticated requests
+
+**User Isolation Tests**
+- Comprehensive verification that users cannot access, modify, or delete other users' invoices
 
 ## Adding New Tests
 
