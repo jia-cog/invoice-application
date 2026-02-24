@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
-from models import db
+from models import db, VALID_USER_GROUPS
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
@@ -50,6 +50,27 @@ def create_app():
     def missing_token_callback(error):
         print(f"JWT Error: Missing token. Error: {error}")
         return jsonify({'error': 'Authorization token is required'}), 401
+    
+    @jwt.token_verification_loader
+    def verify_user_group_claim(jwt_header, jwt_data):
+        user_group = jwt_data.get('user_group')
+        if user_group is None:
+            return False
+        if user_group not in VALID_USER_GROUPS:
+            return False
+        return True
+    
+    @jwt.token_verification_failed_loader
+    def token_verification_failed_callback(jwt_header, jwt_data):
+        user_group = jwt_data.get('user_group')
+        if user_group is None:
+            msg = 'Missing user_group claim in token'
+        elif user_group not in VALID_USER_GROUPS:
+            msg = f'Invalid user_group: {user_group}'
+        else:
+            msg = 'Token verification failed'
+        print(f"JWT Error: {msg}. Header: {jwt_header}")
+        return jsonify({'error': msg}), 401
     
     # Create tables
     with app.app_context():
