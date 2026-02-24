@@ -1,0 +1,129 @@
+---
+# =============================================================================
+# Security Role
+# Configures firewall (UFW), SSL certificates (Let's Encrypt), CORS
+# restrictions, and secure secret management.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Firewall (UFW)
+# ---------------------------------------------------------------------------
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Set UFW default deny incoming
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: Set UFW default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+
+- name: Allow SSH through firewall
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Allow configured TCP ports through firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ firewall_allowed_tcp_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# ---------------------------------------------------------------------------
+# SSL Certificates (Let's Encrypt via Certbot)
+# ---------------------------------------------------------------------------
+- name: Create certbot webroot directory
+  ansible.builtin.file:
+    path: /var/www/certbot
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: ssl_enabled
+
+- name: Check if SSL certificate already exists
+  ansible.builtin.stat:
+    path: "{{ ssl_certificate }}"
+  register: security_ssl_cert_file
+  when: ssl_enabled
+
+- name: Obtain SSL certificate from Let's Encrypt
+  ansible.builtin.command:
+    cmd: >
+      certbot certonly --nginx
+      --non-interactive
+      --agree-tos
+      --email admin@{{ frontend_domain }}
+      -d {{ frontend_domain }}
+  when: ssl_enabled and not security_ssl_cert_file.stat.exists
+  changed_when: true
+  notify: Reload nginx
+
+- name: Set up certbot auto-renewal cron job
+  ansible.builtin.cron:
+    name: "Renew Let's Encrypt certificates"
+    minute: "0"
+    hour: "3"
+    weekday: "1"
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+    user: root
+  when: ssl_enabled
+
+# ---------------------------------------------------------------------------
+# CORS Configuration
+# ---------------------------------------------------------------------------
+- name: Deploy production config.py with restricted CORS origins
+  ansible.builtin.template:
+    src: config_production.py.j2
+    dest: "{{ backend_dir }}/config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice-backend
+
+# ---------------------------------------------------------------------------
+# Secret file permissions
+# ---------------------------------------------------------------------------
+- name: Ensure backend .env has strict permissions
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+
+- name: Ensure database directory has strict permissions
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/instance"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+# ---------------------------------------------------------------------------
+# System hardening
+# ---------------------------------------------------------------------------
+- name: Disable root SSH login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^PermitRootLogin"
+    line: "PermitRootLogin no"
+    state: present
+  notify: Restart sshd
+
+- name: Disable password authentication for SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^PasswordAuthentication"
+    line: "PasswordAuthentication no"
+    state: present
+  notify: Restart sshd

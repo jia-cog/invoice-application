@@ -1,0 +1,50 @@
+---
+# =============================================================================
+# Invoice App Frontend Role
+# Installs npm dependencies, builds the React production bundle, and ensures
+# the build output is available for Nginx to serve.
+# =============================================================================
+
+- name: Install npm dependencies
+  ansible.builtin.command:
+    cmd: npm ci --production=false
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    HOME: "{{ app_base_dir }}"
+  register: npm_install
+  changed_when: "'added' in npm_install.stdout or 'removed' in npm_install.stdout"
+
+- name: Build React production bundle
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    REACT_APP_API_URL: "{{ react_app_api_url }}"
+    CI: "true"
+    HOME: "{{ app_base_dir }}"
+    NODE_OPTIONS: "--max-old-space-size=1024"
+  register: frontend_build
+  changed_when: frontend_build.rc == 0
+  notify: Reload nginx
+
+- name: Ensure build directory has correct ownership
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: true
+    mode: "0755"
+
+- name: Allow Nginx to read frontend build files
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: www-data
+    recurse: true
+    mode: "0755"
