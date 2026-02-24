@@ -43,7 +43,7 @@ ansible-playbook/
         ├── tasks/main.yml
         ├── handlers/main.yml
         └── templates/
-            └── cors_config.py.j2
+            └── config_production.py.j2
 ```
 
 ## Prerequisites
