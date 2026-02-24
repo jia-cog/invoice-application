@@ -1,0 +1,63 @@
+---
+# Invoice Application Deployment Playbook
+# Deploys a full-stack invoicing application (Flask + React) to production servers.
+#
+# Usage:
+#   ansible-playbook -i inventory.ini site.yml
+#
+# Requirements:
+#   - Target server running Ubuntu 20.04+ / Debian 11+
+#   - SSH access with sudo privileges
+#   - Python 3 installed on the control machine
+
+- name: Deploy Invoice Application
+  hosts: production
+  become: true
+  vars_files:
+    - group_vars/production.yml
+
+  pre_tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+  roles:
+    - role: system-deps
+      tags: [system, deps]
+
+    - role: database
+      tags: [database, db]
+
+    - role: invoice-app-backend
+      tags: [backend, app]
+
+    - role: invoice-app-frontend
+      tags: [frontend, app]
+
+    - role: webserver
+      tags: [webserver, nginx]
+
+    - role: security
+      tags: [security]
+
+  post_tasks:
+    - name: Verify backend health check
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ backend_port }}/api/health"
+        method: GET
+        status_code: 200
+      register: health_result
+      retries: 5
+      delay: 3
+      until: health_result.status == 200
+      tags: [verify]
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Deployment complete!
+          Backend health: {{ health_result.json.status | default('unknown') }}
+          Frontend URL: https://{{ frontend_domain }}
+          Backend API:  https://{{ frontend_domain }}/api
+      tags: [verify]

@@ -1,0 +1,73 @@
+---
+# =============================================================================
+# Invoice Application - Production Environment Configuration
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Application paths
+# ---------------------------------------------------------------------------
+app_base_dir: /opt/invoice-application
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_version: master
+
+backend_dir: "{{ app_base_dir }}/src/backend"
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+venv_dir: "{{ app_base_dir }}/.venv"
+
+# ---------------------------------------------------------------------------
+# Application user
+# ---------------------------------------------------------------------------
+app_user: invoice
+app_group: invoice
+
+# ---------------------------------------------------------------------------
+# Backend configuration
+# ---------------------------------------------------------------------------
+backend_port: 5001
+backend_workers: 4
+
+# Database (SQLite - file-based)
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+
+# Secrets - OVERRIDE THESE IN A VAULT OR EXTRA-VARS FOR REAL DEPLOYMENTS
+# Generate secure values with: python3 -c "import secrets; print(secrets.token_hex(32))"
+jwt_secret_key: "CHANGE_ME_USE_ANSIBLE_VAULT"
+flask_secret_key: "CHANGE_ME_USE_ANSIBLE_VAULT"
+
+# ---------------------------------------------------------------------------
+# Frontend configuration
+# ---------------------------------------------------------------------------
+frontend_domain: "invoice.example.com"
+frontend_build_dir: "{{ frontend_dir }}/build"
+
+# The API URL baked into the React build (used at build time)
+react_app_api_url: "https://{{ frontend_domain }}/api"
+
+# ---------------------------------------------------------------------------
+# Nginx / Web server
+# ---------------------------------------------------------------------------
+nginx_worker_processes: auto
+nginx_worker_connections: 1024
+
+# SSL certificate paths (managed by security role / certbot)
+ssl_certificate: "/etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem"
+ssl_certificate_key: "/etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem"
+ssl_enabled: true
+
+# ---------------------------------------------------------------------------
+# Firewall
+# ---------------------------------------------------------------------------
+firewall_allowed_tcp_ports:
+  - "22"
+  - "80"
+  - "443"
+
+# ---------------------------------------------------------------------------
+# CORS - restrict to production domain only
+# ---------------------------------------------------------------------------
+cors_allowed_origins: "https://{{ frontend_domain }}"
+
+# ---------------------------------------------------------------------------
+# Node.js version (major version for NodeSource setup)
+# ---------------------------------------------------------------------------
+nodejs_major_version: "18"

@@ -1,0 +1,75 @@
+---
+# =============================================================================
+# Database Role
+# Handles SQLite database setup with safety guards to prevent data loss
+# on redeployments.
+#
+# CRITICAL: The upstream init_db.py calls db.drop_all() which is destructive.
+# This role uses a marker file to ensure the database is only initialised on
+# the very first provisioning run.
+# =============================================================================
+
+- name: Ensure database instance directory exists
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/instance"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Check if database file already exists
+  ansible.builtin.stat:
+    path: "{{ backend_dir }}/instance/invoice_app.db"
+  register: database_db_file
+
+- name: Check for database initialisation marker
+  ansible.builtin.stat:
+    path: "{{ backend_dir }}/instance/.db_initialized"
+  register: database_marker
+
+# Only initialise the database when BOTH conditions are true:
+#   1. The SQLite file does not yet exist
+#   2. The initialisation marker has not been written
+# This double-check prevents data loss if the DB file is moved or the marker
+# is accidentally removed.
+- name: Initialise database schema (first-time only)
+  ansible.builtin.command:
+    cmd: "{{ venv_dir }}/bin/python -c \"
+      import sys, os;
+      sys.path.insert(0, '{{ backend_dir }}');
+      os.chdir('{{ backend_dir }}');
+      os.environ['DATABASE_URL'] = '{{ database_url }}';
+      os.environ['JWT_SECRET_KEY'] = '{{ jwt_secret_key }}';
+      os.environ['SECRET_KEY'] = '{{ flask_secret_key }}';
+      from app import create_app;
+      app = create_app();
+      print('Database tables created via create_app')
+    \""
+  become: true
+  become_user: "{{ app_user }}"
+  when: not database_db_file.stat.exists and not database_marker.stat.exists
+  changed_when: true
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+
+- name: Write database initialisation marker
+  ansible.builtin.copy:
+    dest: "{{ backend_dir }}/instance/.db_initialized"
+    content: |
+      Database initialized on {{ ansible_date_time.iso8601 }}
+      WARNING: Do NOT delete this file. It prevents init_db.py from
+      destroying and recreating the database on subsequent deployments.
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: not database_marker.stat.exists
+
+- name: Set correct ownership on database file
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/instance/invoice_app.db"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: database_db_file.stat.exists or not database_marker.stat.exists

@@ -1,0 +1,29 @@
+# Gunicorn configuration for Invoice Application
+# Managed by Ansible - do not edit manually
+
+import os
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+# Server socket
+bind = "127.0.0.1:{{ backend_port }}"
+
+# Worker processes
+workers = {{ backend_workers }}
+worker_class = "sync"
+worker_connections = 1000
+timeout = 120
+keepalive = 5
+
+# Logging
+accesslog = "/var/log/invoice-app/access.log"
+errorlog = "/var/log/invoice-app/error.log"
+loglevel = "info"
+
+# Process naming
+proc_name = "invoice-backend"
+
+# Working directory
+chdir = "{{ backend_dir }}"
