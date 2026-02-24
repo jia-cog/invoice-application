@@ -9,7 +9,8 @@ import {
   Trash2, 
   Calendar,
   Search,
-  Filter
+  Filter,
+  Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -18,6 +19,7 @@ const InvoiceList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -34,19 +36,40 @@ const InvoiceList = () => {
     }
   };
 
-  const handleDelete = async (invoiceId) => {
-    if (window.confirm('Are you sure you want to delete this invoice?')) {
-      try {
-        await invoicesAPI.delete(invoiceId);
-        toast.success('Invoice deleted successfully');
-        fetchInvoices();
-      } catch (error) {
-        toast.error('Failed to delete invoice');
+    const handleDelete = async (invoiceId) => {
+      if (window.confirm('Are you sure you want to delete this invoice?')) {
+        try {
+          await invoicesAPI.delete(invoiceId);
+          toast.success('Invoice deleted successfully');
+          fetchInvoices();
+        } catch (error) {
+          toast.error('Failed to delete invoice');
+        }
       }
-    }
-  };
+    };
 
-  const getStatusBadgeClass = (status) => {
+    const handleDownload = async () => {
+      setDownloading(true);
+      try {
+        const response = await invoicesAPI.download();
+        const blob = new Blob([response.data], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'invoices.csv');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success('Invoices downloaded successfully');
+      } catch (error) {
+        toast.error('Failed to download invoices');
+      } finally {
+        setDownloading(false);
+      }
+    };
+
+    const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'paid':
         return 'status-badge status-paid';
@@ -82,13 +105,23 @@ const InvoiceList = () => {
         alignItems: 'center',
         marginBottom: '2rem'
       }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e293b' }}>
-          Invoices
-        </h1>
-        <Link to="/invoices/new" className="btn btn-primary">
-          <Plus size={16} />
-          New Invoice
-        </Link>
+                <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e293b' }}>
+                  Invoices
+                </h1>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="btn btn-outline"
+                  >
+                    <Download size={16} />
+                    {downloading ? 'Downloading...' : 'Download All'}
+                  </button>
+                  <Link to="/invoices/new" className="btn btn-primary">
+                    <Plus size={16} />
+                    New Invoice
+                  </Link>
+                </div>
       </div>
 
       {/* Filters */}
