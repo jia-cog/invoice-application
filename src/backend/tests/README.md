@@ -9,7 +9,8 @@ tests/
 ├── __init__.py          # Makes tests a Python package
 ├── README.md           # This file
 ├── run_tests.py        # Test runner script
-└── test_jwt.py         # JWT authentication tests
+├── test_jwt.py         # JWT authentication tests
+└── test_invoices.py    # Invoice API route tests
 ```
 
 ## Running Tests
@@ -41,6 +42,56 @@ python3 -m unittest discover tests -v
 - Token identity consistency
 - Required JWT claims verification
 - Invalid token handling
+
+### Invoice API Tests (`test_invoices.py`)
+Tests for all invoice CRUD operations including authentication, authorization, validation, and business logic.
+
+**GET /api/invoices/ (List Invoices)**
+- Successfully retrieve invoices for authenticated user
+- Return empty list when no invoices exist
+- Verify user isolation (users only see their own invoices)
+- Reject requests without JWT token
+- Reject requests with invalid JWT token
+
+**GET /api/invoices/<id> (Get Single Invoice)**
+- Successfully retrieve invoice by ID
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Reject requests without JWT token
+
+**POST /api/invoices/ (Create Invoice)**
+- Successfully create invoice with valid data
+- Generate unique invoice number (INV-YYYYMMDD-XXXXXXXX format)
+- Calculate totals correctly (subtotal, tax, total)
+- Create invoice items with correct totals
+- Return 400 for missing required fields (customer_name, due_date, items)
+- Return 400 for empty items list
+- Return 400 for invalid item data (missing description, quantity, or unit_price)
+- Default status to 'draft' when not provided
+- Default tax_rate to 0 when not provided
+- Reject requests without JWT token
+
+**PUT /api/invoices/<id> (Update Invoice)**
+- Successfully update invoice fields (customer_name, status, email, due_date, notes)
+- Update items and recalculate totals
+- Update tax rate and recalculate totals
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Reject requests without JWT token
+
+**DELETE /api/invoices/<id> (Delete Invoice)**
+- Successfully delete invoice
+- Cascade delete associated invoice items
+- Return 404 for non-existent invoice
+- Return 404 for invoice belonging to another user
+- Reject requests without JWT token
+
+**User Isolation Tests**
+- Comprehensive test verifying users cannot access, modify, or delete other users' invoices
+
+**Multiple Invoices Tests**
+- Creating multiple invoices generates unique invoice numbers
+- Invoices are returned ordered by created_at descending
 
 ## Adding New Tests
 
