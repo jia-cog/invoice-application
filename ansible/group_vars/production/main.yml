@@ -1,0 +1,13 @@
+---
+app_env: production
+app_domain: invoiceapp.com
+enable_ssl: true
+enable_firewall: true
+gunicorn_workers: 5
+
+cors_origins: "https://invoiceapp.com"
+
+# These MUST be provided via Ansible Vault
+db_password: "{{ vault_db_password }}"
+jwt_secret_key: "{{ vault_jwt_secret_key }}"
+flask_secret_key: "{{ vault_flask_secret_key }}"

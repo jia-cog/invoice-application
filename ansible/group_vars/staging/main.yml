@@ -1,0 +1,13 @@
+---
+app_env: staging
+app_domain: staging.invoiceapp.com
+enable_ssl: true
+enable_firewall: true
+gunicorn_workers: 3
+
+cors_origins: "https://staging.invoiceapp.com"
+
+# Override these with Ansible Vault in vault.yml
+db_password: "{{ vault_db_password }}"
+jwt_secret_key: "{{ vault_jwt_secret_key }}"
+flask_secret_key: "{{ vault_flask_secret_key }}"

@@ -1,0 +1,55 @@
+---
+- name: Deploy Invoice Application
+  hosts: invoice_servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - app_domain is defined
+          - db_password is defined
+          - jwt_secret_key is defined
+          - flask_secret_key is defined
+        fail_msg: >
+          Required variables are missing. Ensure app_domain, db_password,
+          jwt_secret_key, and flask_secret_key are defined (use Ansible Vault
+          for sensitive values).
+
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: "Deploying Invoice Application to {{ app_domain }} (env: {{ app_env }})"
+
+  roles:
+    - role: system_setup
+    - role: database_config
+    - role: backend_deploy
+    - role: frontend_build
+    - role: security_hardening
+
+  post_tasks:
+    - name: Verify application health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ backend_port }}/api/health"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: health_result
+      retries: 5
+      delay: 3
+      until: health_result.status == 200
+
+    - name: Display health check result
+      ansible.builtin.debug:
+        msg: "Health check passed: {{ health_result.json }}"
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Deployment complete:
+            - Domain: {{ app_domain }}
+            - Environment: {{ app_env }}
+            - Backend: gunicorn on port {{ backend_port }}
+            - Frontend: nginx serving React build
+            - Database: PostgreSQL on {{ db_host }}:{{ db_port }}

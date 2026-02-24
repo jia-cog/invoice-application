@@ -1,0 +1,91 @@
+---
+- name: Install npm dependencies
+  ansible.builtin.command:
+    cmd: npm ci --production=false
+    chdir: "{{ app_frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  register: npm_install_result
+  changed_when: "'added' in npm_install_result.stdout"
+
+- name: Build React application for production
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ app_frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    REACT_APP_API_URL: "{{ react_app_api_url }}"
+    NODE_ENV: production
+  register: npm_build_result
+  changed_when: true
+
+- name: Verify build directory exists
+  ansible.builtin.stat:
+    path: "{{ frontend_build_dir }}"
+  register: build_dir
+
+- name: Fail if build directory was not created
+  ansible.builtin.fail:
+    msg: "React build failed - build directory not found at {{ frontend_build_dir }}"
+  when: not build_dir.stat.exists
+
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+
+- name: Remove default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Deploy Nginx configuration for Invoice Application
+  ansible.builtin.template:
+    src: invoice-app.nginx.conf.j2
+    dest: /etc/nginx/sites-available/invoice-app.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable Nginx site configuration
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/invoice-app.conf
+    dest: /etc/nginx/sites-enabled/invoice-app.conf
+    state: link
+  notify: Reload nginx
+
+- name: Validate Nginx configuration
+  ansible.builtin.command:
+    cmd: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Display Nginx config test result
+  ansible.builtin.debug:
+    msg: "{{ nginx_test.stderr }}"
+
+- name: Flush handlers to apply Nginx config
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Verify Nginx is serving the frontend
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nginx_listen_port }}/"
+    method: GET
+    status_code: 200
+  register: frontend_check
+  retries: 5
+  delay: 2
+  until: frontend_check.status == 200
+
+- name: Display frontend deployment status
+  ansible.builtin.debug:
+    msg: "Frontend is being served by Nginx on port {{ nginx_listen_port }}"

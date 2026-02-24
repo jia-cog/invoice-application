@@ -1,0 +1,38 @@
+---
+app_name: invoice-application
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
+app_backend_dir: "{{ app_base_dir }}/src/backend"
+app_frontend_dir: "{{ app_base_dir }}/src/frontend"
+app_venv_dir: "{{ app_backend_dir }}/.venv"
+app_env: development
+
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_branch: master
+
+backend_port: 5001
+gunicorn_workers: 3
+gunicorn_bind: "127.0.0.1:{{ backend_port }}"
+
+db_engine: postgresql
+db_host: localhost
+db_port: 5432
+db_name: invoice_app
+db_user: invoice_app
+
+python_version: "3.12"
+nodejs_version: "20"
+
+nginx_server_name: "{{ app_domain }}"
+nginx_listen_port: 80
+nginx_ssl_listen_port: 443
+
+cors_origins: "https://{{ app_domain }}"
+
+enable_ssl: false
+enable_firewall: true
+
+ssl_certificate_path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+ssl_private_key_path: "/etc/letsencrypt/live/{{ app_domain }}/privkey.pem"
+ssl_email: "admin@{{ app_domain }}"

@@ -1,0 +1,23 @@
+[Unit]
+Description=Invoice Application Backend (Gunicorn)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=notify
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ app_backend_dir }}
+EnvironmentFile={{ backend_env_file }}
+ExecStart={{ app_venv_dir }}/bin/gunicorn --config gunicorn.conf.py app:create_app()
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStartSec=30
+TimeoutStopSec=30
+StandardOutput=append:{{ app_base_dir }}/logs/gunicorn-stdout.log
+StandardError=append:{{ app_base_dir }}/logs/gunicorn-stderr.log
+
+[Install]
+WantedBy=multi-user.target

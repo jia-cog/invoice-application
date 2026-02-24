@@ -1,0 +1,12 @@
+import multiprocessing
+
+bind = "{{ gunicorn_bind }}"
+workers = {{ gunicorn_workers }}
+timeout = {{ gunicorn_timeout }}
+max_requests = {{ gunicorn_max_requests }}
+max_requests_jitter = {{ gunicorn_max_requests_jitter }}
+loglevel = "{{ gunicorn_log_level }}"
+accesslog = "{{ gunicorn_access_log }}"
+errorlog = "{{ gunicorn_error_log }}"
+worker_class = "sync"
+preload_app = True

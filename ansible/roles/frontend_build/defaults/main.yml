@@ -1,0 +1,13 @@
+---
+nginx_server_name: "{{ app_domain }}"
+nginx_listen_port: 80
+nginx_ssl_listen_port: 443
+
+frontend_build_dir: "{{ app_frontend_dir }}/build"
+nginx_root: "{{ frontend_build_dir }}"
+
+nginx_client_max_body_size: 10m
+nginx_proxy_read_timeout: 60
+nginx_proxy_connect_timeout: 60
+
+react_app_api_url: "https://{{ app_domain }}/api"

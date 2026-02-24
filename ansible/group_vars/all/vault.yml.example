@@ -1,0 +1,10 @@
+---
+# Copy this file to vault.yml and encrypt with: ansible-vault encrypt vault.yml
+#
+# Required secrets (replace placeholder values):
+# vault_db_password: "CHANGE_ME_secure_database_password"
+# vault_jwt_secret_key: "CHANGE_ME_random_64_char_string"
+# vault_flask_secret_key: "CHANGE_ME_random_64_char_string"
+#
+# Generate secure random values with:
+#   python3 -c "import secrets; print(secrets.token_urlsafe(48))"
