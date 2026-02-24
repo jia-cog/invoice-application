@@ -1,0 +1,1 @@
+devin --permission-mode dangerous -p -- "$(cat "$1")" --export $PWD/agent_trajectory_run.json
