@@ -91,6 +91,14 @@ def get_profile(base_url: str, token: str) -> tuple[Optional[int], dict]:
 
 
 def main() -> int:
+    env = os.environ.get("ENV", "").lower()
+    if env == "production":
+        print(
+            "ERROR: This bootstrap script must not be run in a production environment.\n"
+            "Unset the ENV variable or set it to a non-production value to continue."
+        )
+        return 1
+
     base_url = os.environ.get("API_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
     print(f"Using API base URL: {base_url}")

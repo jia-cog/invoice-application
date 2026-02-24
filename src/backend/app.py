@@ -7,11 +7,15 @@ from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
 
+def _validate_environment():
+    Config.validate()
+
 def create_app():
+    _validate_environment()
+
     app = Flask(__name__)
     app.config.from_object(Config)
-    
-    # Initialize extensions
+
     db.init_app(app)
     CORS(app, origins=Config.CORS_ORIGINS)
     jwt = JWTManager(app)
