@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+    container_name: invoice-backend
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=sqlite:////app/instance/invoice_app.db
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-in-production}
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+    volumes:
+      - invoice-data:/app/instance
+    networks:
+      - invoice-network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: invoice-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5001/api
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - invoice-network
+    stdin_open: true
+    tty: true
+
+networks:
+  invoice-network:
+    driver: bridge
+
+volumes:
+  invoice-data:
+    driver: local
