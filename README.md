@@ -16,6 +16,18 @@ A full-stack invoicing application built with React.js frontend and Flask backen
 - **Database**: SQLite
 - **Environment**: Python virtual environment (.venv)
 
+## Database Options
+
+The application supports both SQLite (default) and PostgreSQL databases.
+
+### PostgreSQL Setup
+To use PostgreSQL instead of SQLite, set the DATABASE_URL environment variable:
+```bash
+export DATABASE_URL=postgresql://username:password@host:port/database_name
+```
+
+Then follow the normal setup instructions. The database initialization script (`init_db.py`) will work with either database type.
+
 ## Setup Instructions
 
 ### Backend Setup
