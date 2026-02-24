@@ -1,0 +1,180 @@
+---
+# Ansible Playbook for Invoice Application Docker Deployment
+# Jira Ticket: JIA-4
+#
+# This playbook builds and deploys the Invoice Application using Docker containers.
+# It creates a backend (Flask) and frontend (React) container with proper networking
+# and persistent storage for the SQLite database.
+
+- name: Deploy Invoice Application with Docker
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    # Application settings
+    app_name: invoice-app
+    backend_image: invoice-backend
+    frontend_image: invoice-frontend
+    backend_container: invoice-backend
+    frontend_container: invoice-frontend
+    
+    # Network settings
+    docker_network: invoice-network
+    
+    # Volume settings
+    data_volume: invoice-data
+    
+    # Port mappings
+    backend_port: 5001
+    frontend_port: 3000
+    
+    # Environment variables (override these for production)
+    jwt_secret_key: "{{ lookup('env', 'JWT_SECRET_KEY') | default('change-this-secret-key-in-production', true) }}"
+    secret_key: "{{ lookup('env', 'SECRET_KEY') | default('change-this-secret-key-in-production', true) }}"
+    database_url: "sqlite:////data/invoice_app.db"
+    
+    # Project paths
+    project_root: "{{ playbook_dir }}"
+    backend_dockerfile: "{{ project_root }}/src/backend/Dockerfile"
+    frontend_dockerfile: "{{ project_root }}/src/frontend/Dockerfile"
+
+  tasks:
+    - name: Check if Docker is installed
+      ansible.builtin.command: docker --version
+      register: docker_version
+      changed_when: false
+      failed_when: docker_version.rc != 0
+
+    - name: Display Docker version
+      ansible.builtin.debug:
+        msg: "Docker version: {{ docker_version.stdout }}"
+
+    - name: Create Docker network for container communication
+      community.docker.docker_network:
+        name: "{{ docker_network }}"
+        state: present
+
+    - name: Create Docker volume for SQLite persistence
+      community.docker.docker_volume:
+        name: "{{ data_volume }}"
+        state: present
+
+    - name: Build backend Docker image
+      community.docker.docker_image:
+        name: "{{ backend_image }}"
+        tag: latest
+        source: build
+        build:
+          path: "{{ project_root }}"
+          dockerfile: src/backend/Dockerfile
+          pull: true
+        state: present
+        force_source: true
+
+    - name: Build frontend Docker image
+      community.docker.docker_image:
+        name: "{{ frontend_image }}"
+        tag: latest
+        source: build
+        build:
+          path: "{{ project_root }}/src/frontend"
+          dockerfile: Dockerfile
+          pull: true
+        state: present
+        force_source: true
+
+    - name: Stop and remove existing backend container if present
+      community.docker.docker_container:
+        name: "{{ backend_container }}"
+        state: absent
+
+    - name: Stop and remove existing frontend container if present
+      community.docker.docker_container:
+        name: "{{ frontend_container }}"
+        state: absent
+
+    - name: Deploy backend container
+      community.docker.docker_container:
+        name: "{{ backend_container }}"
+        image: "{{ backend_image }}:latest"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ backend_port }}:5001"
+        env:
+          DATABASE_URL: "{{ database_url }}"
+          JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+          SECRET_KEY: "{{ secret_key }}"
+        volumes:
+          - "{{ data_volume }}:/data"
+        networks:
+          - name: "{{ docker_network }}"
+        healthcheck:
+          test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/health')"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 10s
+
+    - name: Wait for backend to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ backend_port }}/api/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      until: health_check.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Display backend health check result
+      ansible.builtin.debug:
+        msg: "Backend health check: {{ health_check.json }}"
+
+    - name: Deploy frontend container
+      community.docker.docker_container:
+        name: "{{ frontend_container }}"
+        image: "{{ frontend_image }}:latest"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ frontend_port }}:3000"
+        env:
+          REACT_APP_API_URL: "http://localhost:{{ backend_port }}/api"
+        networks:
+          - name: "{{ docker_network }}"
+        tty: true
+        interactive: true
+
+    - name: Wait for frontend to be available
+      ansible.builtin.uri:
+        url: "http://localhost:{{ frontend_port }}"
+        method: GET
+        status_code: 200
+      register: frontend_check
+      until: frontend_check.status == 200
+      retries: 60
+      delay: 5
+      ignore_errors: true
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Invoice Application Deployment Complete!
+          ==========================================
+          Backend URL: http://localhost:{{ backend_port }}
+          Frontend URL: http://localhost:{{ frontend_port }}
+          Health Check: http://localhost:{{ backend_port }}/api/health
+          
+          Docker Resources:
+          - Network: {{ docker_network }}
+          - Volume: {{ data_volume }}
+          - Backend Container: {{ backend_container }}
+          - Frontend Container: {{ frontend_container }}
+          
+          To stop the application:
+            docker stop {{ frontend_container }} {{ backend_container }}
+          
+          To view logs:
+            docker logs {{ backend_container }}
+            docker logs {{ frontend_container }}
