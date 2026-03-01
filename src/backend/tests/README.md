@@ -9,7 +9,8 @@ tests/
 ├── __init__.py          # Makes tests a Python package
 ├── README.md           # This file
 ├── run_tests.py        # Test runner script
-└── test_jwt.py         # JWT authentication tests
+├── test_jwt.py         # JWT authentication tests
+└── test_invoices.py    # Invoice API routes tests
 ```
 
 ## Running Tests
@@ -41,6 +42,16 @@ python3 -m unittest discover tests -v
 - Token identity consistency
 - Required JWT claims verification
 - Invalid token handling
+
+### Invoice API Routes Tests (`test_invoices.py`)
+- **GET /api/invoices/** - List invoices for authenticated user, empty list handling, user isolation
+- **GET /api/invoices/<id>** - Retrieve invoice by ID, 404 for non-existent/unauthorized invoices
+- **POST /api/invoices/** - Create invoice with validation, invoice number generation, totals calculation
+- **PUT /api/invoices/<id>** - Update invoice fields and items, totals recalculation
+- **DELETE /api/invoices/<id>** - Delete invoice with cascade deletion of items
+- **Authentication** - All endpoints require valid JWT, reject missing/invalid tokens
+- **User Isolation** - Users can only access their own invoices
+- **Business Logic** - Item totals, subtotals, tax calculations, invoice number format
 
 ## Adding New Tests
 
