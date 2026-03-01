@@ -1,0 +1,149 @@
+---
+- name: Deploy Invoice Application with Docker
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    project_root: "{{ playbook_dir }}"
+    backend_image_name: "invoice-backend"
+    frontend_image_name: "invoice-frontend"
+    backend_container_name: "invoice-backend"
+    frontend_container_name: "invoice-frontend"
+    network_name: "invoice-network"
+    volume_name: "invoice-data"
+    backend_port: 5001
+    frontend_port: 3000
+    jwt_secret_key: "{{ lookup('env', 'JWT_SECRET_KEY') | default('change-this-in-production', true) }}"
+    secret_key: "{{ lookup('env', 'SECRET_KEY') | default('change-this-in-production', true) }}"
+
+  tasks:
+    - name: Check if Docker is installed
+      command: docker --version
+      register: docker_version
+      changed_when: false
+      failed_when: docker_version.rc != 0
+
+    - name: Display Docker version
+      debug:
+        msg: "Docker version: {{ docker_version.stdout }}"
+
+    - name: Create Docker network for invoice application
+      community.docker.docker_network:
+        name: "{{ network_name }}"
+        state: present
+
+    - name: Create Docker volume for SQLite persistence
+      community.docker.docker_volume:
+        name: "{{ volume_name }}"
+        state: present
+
+    - name: Build backend Docker image
+      community.docker.docker_image:
+        name: "{{ backend_image_name }}"
+        tag: latest
+        source: build
+        build:
+          path: "{{ project_root }}"
+          dockerfile: src/backend/Dockerfile
+        state: present
+        force_source: true
+
+    - name: Build frontend Docker image
+      community.docker.docker_image:
+        name: "{{ frontend_image_name }}"
+        tag: latest
+        source: build
+        build:
+          path: "{{ project_root }}"
+          dockerfile: src/frontend/Dockerfile
+        state: present
+        force_source: true
+
+    - name: Stop and remove existing backend container if running
+      community.docker.docker_container:
+        name: "{{ backend_container_name }}"
+        state: absent
+
+    - name: Stop and remove existing frontend container if running
+      community.docker.docker_container:
+        name: "{{ frontend_container_name }}"
+        state: absent
+
+    - name: Deploy backend container
+      community.docker.docker_container:
+        name: "{{ backend_container_name }}"
+        image: "{{ backend_image_name }}:latest"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ backend_port }}:5001"
+        env:
+          DATABASE_URL: "sqlite:////app/data/invoice_app.db"
+          JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+          SECRET_KEY: "{{ secret_key }}"
+          FLASK_ENV: "production"
+        volumes:
+          - "{{ volume_name }}:/app/data"
+        networks:
+          - name: "{{ network_name }}"
+        healthcheck:
+          test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/api/health')"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 10s
+
+    - name: Wait for backend to be healthy
+      uri:
+        url: "http://localhost:{{ backend_port }}/api/health"
+        method: GET
+        status_code: 200
+      register: backend_health
+      until: backend_health.status == 200
+      retries: 10
+      delay: 5
+
+    - name: Display backend health status
+      debug:
+        msg: "Backend health check: {{ backend_health.json }}"
+
+    - name: Deploy frontend container
+      community.docker.docker_container:
+        name: "{{ frontend_container_name }}"
+        image: "{{ frontend_image_name }}:latest"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ frontend_port }}:3000"
+        env:
+          REACT_APP_API_URL: "http://localhost:{{ backend_port }}/api"
+        networks:
+          - name: "{{ network_name }}"
+
+    - name: Wait for frontend to be available
+      uri:
+        url: "http://localhost:{{ frontend_port }}"
+        method: GET
+        status_code: 200
+      register: frontend_health
+      until: frontend_health.status == 200
+      retries: 10
+      delay: 5
+      ignore_errors: true
+
+    - name: Display deployment summary
+      debug:
+        msg: |
+          Invoice Application Deployment Complete!
+          ==========================================
+          Backend URL: http://localhost:{{ backend_port }}
+          Frontend URL: http://localhost:{{ frontend_port }}
+          Health Check: http://localhost:{{ backend_port }}/api/health
+          
+          To stop the application:
+            docker stop {{ frontend_container_name }} {{ backend_container_name }}
+          
+          To view logs:
+            docker logs {{ backend_container_name }}
+            docker logs {{ frontend_container_name }}
