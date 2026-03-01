@@ -91,8 +91,7 @@ const Dashboard = () => {
             </div>
             <div style={{
               backgroundColor: '#dbeafe',
-              padding: '0.75rem',
-              borderRadius: '0.5rem'
+              padding: '0.75rem'
             }}>
               <FileText size={24} color="#3b82f6" />
             </div>
@@ -111,8 +110,7 @@ const Dashboard = () => {
             </div>
             <div style={{
               backgroundColor: '#d1fae5',
-              padding: '0.75rem',
-              borderRadius: '0.5rem'
+              padding: '0.75rem'
             }}>
               <DollarSign size={24} color="#10b981" />
             </div>
@@ -131,8 +129,7 @@ const Dashboard = () => {
             </div>
             <div style={{
               backgroundColor: '#fef3c7',
-              padding: '0.75rem',
-              borderRadius: '0.5rem'
+              padding: '0.75rem'
             }}>
               <TrendingUp size={24} color="#f59e0b" />
             </div>
@@ -151,8 +148,7 @@ const Dashboard = () => {
             </div>
             <div style={{
               backgroundColor: '#fee2e2',
-              padding: '0.75rem',
-              borderRadius: '0.5rem'
+              padding: '0.75rem'
             }}>
               <Clock size={24} color="#ef4444" />
             </div>

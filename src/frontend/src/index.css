@@ -33,7 +33,6 @@ code {
   justify-content: center;
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 0.375rem;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -108,7 +107,6 @@ code {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
   font-size: 0.875rem;
   transition: border-color 0.2s;
 }
@@ -123,7 +121,6 @@ code {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
   font-size: 0.875rem;
   resize: vertical;
   min-height: 80px;
@@ -144,7 +141,6 @@ code {
 
 .card {
   background: white;
-  border-radius: 0.5rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   padding: 1.5rem;
   margin-bottom: 1rem;
@@ -177,7 +173,6 @@ code {
   display: inline-flex;
   align-items: center;
   padding: 0.25rem 0.5rem;
-  border-radius: 9999px;
   font-size: 0.75rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -215,7 +210,6 @@ code {
   height: 2rem;
   border: 2px solid #e5e7eb;
   border-top: 2px solid #3b82f6;
-  border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 

@@ -209,7 +209,6 @@ const Reports = () => {
                   style={{
                     padding: '1rem',
                     border: '1px solid #e5e7eb',
-                    borderRadius: '0.375rem',
                     marginBottom: '0.5rem',
                     cursor: 'pointer',
                     transition: 'all 0.2s'
@@ -294,8 +293,7 @@ const Reports = () => {
                 <div style={{
                   background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
                   color: 'white',
-                  padding: '1.5rem',
-                  borderRadius: '0.5rem'
+                  padding: '1.5rem'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <FileText size={20} />
@@ -309,8 +307,7 @@ const Reports = () => {
                 <div style={{
                   background: 'linear-gradient(135deg, #10b981, #059669)',
                   color: 'white',
-                  padding: '1.5rem',
-                  borderRadius: '0.5rem'
+                  padding: '1.5rem'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <DollarSign size={20} />
@@ -324,8 +321,7 @@ const Reports = () => {
                 <div style={{
                   background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                   color: 'white',
-                  padding: '1.5rem',
-                  borderRadius: '0.5rem'
+                  padding: '1.5rem'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <TrendingUp size={20} />
@@ -339,8 +335,7 @@ const Reports = () => {
                 <div style={{
                   background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                   color: 'white',
-                  padding: '1.5rem',
-                  borderRadius: '0.5rem'
+                  padding: '1.5rem'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <Users size={20} />
