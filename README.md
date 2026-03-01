@@ -81,6 +81,24 @@ invoice-application/
 - `POST /api/invoices` - Create new invoice
 - `GET /api/reports` - Generate reports
 
+## Code Quality
+
+This project includes linting tools to maintain code quality:
+
+- **Backend**: pylint for Python code quality checks
+- **Frontend**: ESLint configured with react-app standards
+
+To run linting:
+```bash
+# Backend
+cd src/backend
+pylint app.py models.py config.py
+
+# Frontend
+cd src/frontend
+npx eslint src/ --ext .js,.jsx,.ts,.tsx
+```
+
 ## Usage
 
 1. Register a new account or login
