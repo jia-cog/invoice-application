@@ -9,7 +9,8 @@ tests/
 ├── __init__.py          # Makes tests a Python package
 ├── README.md           # This file
 ├── run_tests.py        # Test runner script
-└── test_jwt.py         # JWT authentication tests
+├── test_jwt.py         # JWT authentication tests
+└── test_invoices.py    # Invoice API endpoint tests
 ```
 
 ## Running Tests
@@ -23,7 +24,11 @@ python3 tests/run_tests.py
 ### Run Specific Test File
 ```bash
 # From the backend directory
+# Run JWT tests
 python3 tests/test_jwt.py
+
+# Run invoice tests
+python3 tests/test_invoices.py
 ```
 
 ### Run Tests with Python's unittest module
@@ -41,6 +46,34 @@ python3 -m unittest discover tests -v
 - Token identity consistency
 - Required JWT claims verification
 - Invalid token handling
+
+### Invoice API Tests (`test_invoices.py`)
+- **GET /api/invoices/**: List all user invoices
+  - Authenticated access with valid JWT
+  - Empty list when no invoices exist
+  - User isolation (users only see their own invoices)
+  - Unauthenticated access returns 401
+  
+- **GET /api/invoices/<id>**: Get single invoice
+  - Success with valid invoice ID
+  - 404 for non-existent invoice
+  - 404 for another user's invoice
+  
+- **POST /api/invoices/**: Create new invoice
+  - Success with valid data
+  - Validation for required fields (customer_name, due_date, items)
+  - Validation for item data (description, quantity, unit_price)
+  - Invoice number generation and format verification
+  - Financial calculations (subtotal, tax, total)
+  
+- **PUT /api/invoices/<id>**: Update invoice
+  - Success updating invoice fields
+  - Success updating items with total recalculation
+  - 404 for non-existent or another user's invoice
+  
+- **DELETE /api/invoices/<id>**: Delete invoice
+  - Success deleting invoice
+  - 404 for non-existent or another user's invoice
 
 ## Adding New Tests
 
