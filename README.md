@@ -81,6 +81,23 @@ invoice-application/
 - `POST /api/invoices` - Create new invoice
 - `GET /api/reports` - Generate reports
 
+## Linting
+
+The project includes linting tools for code quality:
+
+### Frontend Linting
+```bash
+cd src/frontend
+npm run build  # Runs ESLint as part of the build process
+```
+
+### Backend Linting
+```bash
+source .venv/bin/activate
+cd src/backend
+pylint app.py models.py config.py routes/*.py
+```
+
 ## Usage
 
 1. Register a new account or login
