@@ -9,6 +9,7 @@ class Config:
     # JWT configuration
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your-secret-key-change-in-production'
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
+    JWT_DECODE_AUDIENCE = 'XYZ'
 
     # Flask configuration
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-change-in-production'
