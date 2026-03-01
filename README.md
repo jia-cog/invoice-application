@@ -87,3 +87,11 @@ invoice-application/
 2. Create invoices with customer details and line items
 3. View and manage your invoices
 4. Generate reports from your invoice data
+
+## Testing
+
+Backend tests can be run using:
+```bash
+cd src/backend
+python3 tests/run_tests.py
+```
