@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=sqlite:///invoice_app.db
+      - JWT_SECRET_KEY=your-secret-key-change-in-production
+      - SECRET_KEY=your-secret-key-change-in-production
+    volumes:
+      - backend-data:/app/instance
+    networks:
+      - invoice-network
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:5001/api
+    depends_on:
+      - backend
+    networks:
+      - invoice-network
+
+volumes:
+  backend-data:
+
+networks:
+  invoice-network:
+    driver: bridge
