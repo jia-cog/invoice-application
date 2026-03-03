@@ -1,0 +1,16 @@
+"""
+CORS Configuration Override for Production
+Managed by Ansible - Do not edit manually.
+
+This file restricts CORS to only the production frontend domain,
+replacing the wildcard '*' origin that ships with the development config.
+
+Import this in your app factory or config to apply production CORS settings.
+"""
+
+# Production-safe CORS origins (no wildcard)
+CORS_ORIGINS = [
+{% for origin in cors_allowed_origins %}
+    "{{ origin }}",
+{% endfor %}
+]

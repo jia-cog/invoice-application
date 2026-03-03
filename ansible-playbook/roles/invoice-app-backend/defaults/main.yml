@@ -1,0 +1,26 @@
+---
+app_name: invoice-application
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_version: master
+backend_port: 5001
+backend_workers: 3
+backend_dir: "{{ app_base_dir }}/src/backend"
+venv_dir: "{{ app_base_dir }}/.venv"
+flask_env: production
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+jwt_secret_key: "CHANGE_ME"
+flask_secret_key: "CHANGE_ME"
+cors_allowed_origins:
+  - "https://localhost"
+
+backend_pip_packages:
+  - flask
+  - flask-sqlalchemy
+  - flask-jwt-extended
+  - flask-cors
+  - werkzeug
+  - gunicorn
+  - python-dotenv

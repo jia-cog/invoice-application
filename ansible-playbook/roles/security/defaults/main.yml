@@ -1,0 +1,12 @@
+---
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
+backend_dir: "{{ app_base_dir }}/src/backend"
+frontend_domain: "{{ inventory_hostname }}"
+enable_ssl: true
+ssl_certificate_path: "/etc/ssl/certs/{{ frontend_domain }}.pem"
+ssl_certificate_key_path: "/etc/ssl/private/{{ frontend_domain }}-key.pem"
+allowed_ssh_port: 22
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"

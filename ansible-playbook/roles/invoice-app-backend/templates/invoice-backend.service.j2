@@ -1,0 +1,42 @@
+[Unit]
+Description=Invoice Application Backend (Gunicorn)
+Documentation=https://github.com/jia-cog/invoice-application
+After=network.target
+Wants=network.target
+
+[Service]
+Type=notify
+User={{ app_user }}
+Group={{ app_group }}
+RuntimeDirectory=invoice-backend
+WorkingDirectory={{ backend_dir }}
+EnvironmentFile={{ backend_dir }}/.env
+ExecStart={{ venv_dir }}/bin/gunicorn \
+    --config {{ backend_dir }}/gunicorn.conf.py \
+    wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=invoice-backend
+
+# Security hardening
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ backend_dir }}/instance
+ReadWritePaths=/var/log/invoice-app
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

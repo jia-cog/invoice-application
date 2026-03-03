@@ -1,0 +1,78 @@
+---
+# =============================================================================
+# Invoice Application - Production Environment Configuration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Application settings
+# -----------------------------------------------------------------------------
+app_name: invoice-application
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_version: master
+
+# -----------------------------------------------------------------------------
+# Backend (Flask) settings
+# -----------------------------------------------------------------------------
+backend_port: 5001
+backend_workers: 3
+backend_dir: "{{ app_base_dir }}/src/backend"
+venv_dir: "{{ app_base_dir }}/.venv"
+
+# Python packages required by the backend (no requirements.txt in deployment)
+backend_pip_packages:
+  - flask
+  - flask-sqlalchemy
+  - flask-jwt-extended
+  - flask-cors
+  - werkzeug
+  - gunicorn
+  - python-dotenv
+
+# Environment variables for the Flask backend
+flask_env: production
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+jwt_secret_key: "{{ vault_jwt_secret_key | default('CHANGE_ME_USE_ANSIBLE_VAULT') }}"
+flask_secret_key: "{{ vault_flask_secret_key | default('CHANGE_ME_USE_ANSIBLE_VAULT') }}"
+
+# -----------------------------------------------------------------------------
+# Frontend (React) settings
+# -----------------------------------------------------------------------------
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+frontend_build_dir: "{{ frontend_dir }}/build"
+frontend_domain: "{{ inventory_hostname }}"
+react_app_api_url: "https://{{ frontend_domain }}/api"
+
+# -----------------------------------------------------------------------------
+# Database settings
+# -----------------------------------------------------------------------------
+db_dir: "{{ backend_dir }}/instance"
+db_file: "{{ db_dir }}/invoice_app.db"
+
+# -----------------------------------------------------------------------------
+# Nginx / Webserver settings
+# -----------------------------------------------------------------------------
+nginx_worker_processes: auto
+nginx_worker_connections: 1024
+ssl_certificate_path: "/etc/ssl/certs/{{ frontend_domain }}.pem"
+ssl_certificate_key_path: "/etc/ssl/private/{{ frontend_domain }}-key.pem"
+enable_ssl: true
+
+# -----------------------------------------------------------------------------
+# Security settings
+# -----------------------------------------------------------------------------
+allowed_ssh_port: 22
+firewall_allowed_tcp_ports:
+  - "{{ allowed_ssh_port }}"
+  - 80
+  - 443
+
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"
+
+# -----------------------------------------------------------------------------
+# Node.js settings
+# -----------------------------------------------------------------------------
+nodejs_version: "18"

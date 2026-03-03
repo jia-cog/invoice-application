@@ -1,0 +1,14 @@
+"""WSGI entry point for the Invoice Application.
+
+Managed by Ansible - Do not edit manually.
+"""
+import sys
+import os
+
+# Ensure the backend directory is in the Python path
+sys.path.insert(0, "{{ backend_dir }}")
+os.chdir("{{ backend_dir }}")
+
+from app import create_app
+
+application = create_app()

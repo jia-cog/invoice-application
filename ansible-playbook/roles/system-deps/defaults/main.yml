@@ -1,0 +1,5 @@
+---
+nodejs_version: "18"
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
