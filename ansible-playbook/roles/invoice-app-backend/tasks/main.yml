@@ -29,14 +29,22 @@
   become: true
   become_user: "{{ app_user }}"
 
-- name: Install Python dependencies in virtual environment
+- name: Install Python dependencies from requirements.txt
   ansible.builtin.pip:
-    name: "{{ backend_pip_packages }}"
+    requirements: "{{ app_base_dir }}/requirements.txt"
     virtualenv: "{{ venv_dir }}"
     state: present
   become: true
   become_user: "{{ app_user }}"
   notify: Restart invoice backend
+
+- name: Install Gunicorn in virtual environment
+  ansible.builtin.pip:
+    name: gunicorn
+    virtualenv: "{{ venv_dir }}"
+    state: present
+  become: true
+  become_user: "{{ app_user }}"
 
 - name: Deploy backend environment file
   ansible.builtin.template:

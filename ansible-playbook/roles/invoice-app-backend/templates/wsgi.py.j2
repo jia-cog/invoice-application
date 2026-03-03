@@ -1,6 +1,11 @@
 """WSGI entry point for the Invoice Application.
 
 Managed by Ansible - Do not edit manually.
+
+This module creates the Flask application and applies the production CORS
+configuration override. The cors_config.py file (deployed by the security role)
+restricts CORS origins to only the production frontend domain, replacing the
+wildcard '*' that ships with the default development config.
 """
 import sys
 import os
@@ -10,5 +15,13 @@ sys.path.insert(0, "{{ backend_dir }}")
 os.chdir("{{ backend_dir }}")
 
 from app import create_app
+from flask_cors import CORS
 
 application = create_app()
+
+# Override CORS with production-safe origins from Ansible-managed cors_config.py
+try:
+    from cors_config import CORS_ORIGINS
+    CORS(application, origins=CORS_ORIGINS)
+except ImportError:
+    pass  # Fall back to default config.py CORS settings

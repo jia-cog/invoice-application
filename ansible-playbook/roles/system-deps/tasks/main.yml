@@ -47,6 +47,12 @@
     enabled: true
     state: started
 
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    system: true
+    state: present
+
 - name: Create application user
   ansible.builtin.user:
     name: "{{ app_user }}"
@@ -55,9 +61,3 @@
     shell: /usr/sbin/nologin
     home: "{{ app_base_dir }}"
     create_home: false
-
-- name: Create application group
-  ansible.builtin.group:
-    name: "{{ app_group }}"
-    system: true
-    state: present
