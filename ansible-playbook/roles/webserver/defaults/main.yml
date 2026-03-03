@@ -1,0 +1,11 @@
+---
+app_user: invoice
+app_group: invoice
+frontend_build_dir: /opt/invoice-application/src/frontend/build
+frontend_domain: "{{ inventory_hostname }}"
+backend_port: 5001
+enable_ssl: true
+ssl_certificate_path: "/etc/ssl/certs/{{ frontend_domain }}.pem"
+ssl_certificate_key_path: "/etc/ssl/private/{{ frontend_domain }}-key.pem"
+nginx_worker_processes: auto
+nginx_worker_connections: 1024

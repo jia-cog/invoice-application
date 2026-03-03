@@ -1,0 +1,75 @@
+---
+# Database Role
+# Handles SQLite database setup with safety guards against destructive re-init.
+#
+# CRITICAL: The app's init_db.py calls db.drop_all() which destroys all data.
+# We use a marker file to ensure initialization only runs on first provisioning.
+
+- name: Ensure database instance directory exists
+  ansible.builtin.file:
+    path: "{{ db_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Check if database file already exists
+  ansible.builtin.stat:
+    path: "{{ db_file }}"
+  register: db_file_stat
+
+- name: Check for database initialization marker
+  ansible.builtin.stat:
+    path: "{{ db_dir }}/.db_initialized"
+  register: db_init_marker
+
+- name: Initialize database schema (first-time only)
+  ansible.builtin.command:
+    cmd: "{{ venv_dir }}/bin/python3 -c \"
+      import sys;
+      sys.path.insert(0, '{{ backend_dir }}');
+      from app import create_app;
+      from models import db;
+      app = create_app();
+      ctx = app.app_context();
+      ctx.push();
+      db.create_all();
+      print('Database tables created successfully');
+      ctx.pop()
+      \""
+  args:
+    chdir: "{{ backend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  when: not db_init_marker.stat.exists
+  changed_when: true
+  notify: Restart invoice backend
+
+- name: Create database initialization marker
+  ansible.builtin.file:
+    path: "{{ db_dir }}/.db_initialized"
+    state: touch
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  when: not db_init_marker.stat.exists
+
+- name: Set proper permissions on database file
+  ansible.builtin.file:
+    path: "{{ db_file }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: db_file_stat.stat.exists or not db_init_marker.stat.exists
+
+- name: Ensure database directory has correct permissions
+  ansible.builtin.file:
+    path: "{{ db_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+    recurse: true

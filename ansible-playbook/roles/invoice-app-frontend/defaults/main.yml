@@ -1,0 +1,8 @@
+---
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+frontend_build_dir: "{{ frontend_dir }}/build"
+frontend_domain: "{{ inventory_hostname }}"
+react_app_api_url: "https://{{ frontend_domain }}/api"

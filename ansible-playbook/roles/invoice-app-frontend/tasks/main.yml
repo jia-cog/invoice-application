@@ -1,0 +1,46 @@
+---
+# Invoice App Frontend Role
+# Installs npm dependencies, sets the production API URL at build time,
+# and creates the React production build for static serving.
+
+- name: Install npm dependencies
+  community.general.npm:
+    path: "{{ frontend_dir }}"
+    state: present
+    production: false
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    HOME: "{{ app_base_dir }}"
+
+- name: Build React frontend for production
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    REACT_APP_API_URL: "{{ react_app_api_url }}"
+    NODE_ENV: production
+    CI: "true"
+    HOME: "{{ app_base_dir }}"
+  register: frontend_build
+  changed_when: frontend_build.rc == 0
+
+- name: Ensure build directory has correct ownership
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: true
+    state: directory
+
+- name: Allow Nginx to read frontend build files
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    mode: "0755"
+    state: directory
+
+- name: Display build result
+  ansible.builtin.debug:
+    msg: "Frontend build completed. Output directory: {{ frontend_build_dir }}"

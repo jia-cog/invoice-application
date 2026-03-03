@@ -1,0 +1,19 @@
+"""
+Production Configuration Override
+Managed by Ansible - Do not edit manually.
+
+This module is imported by the production WSGI entry point to override
+the default development configuration with production-safe CORS settings.
+
+The default config.py ships with CORS_ORIGINS = ['*'] which allows all
+origins. This override restricts CORS to only the production frontend domain.
+"""
+
+import os
+
+# Production-safe CORS origins (no wildcard)
+CORS_ORIGINS = [
+{% for origin in cors_allowed_origins %}
+    "{{ origin }}",
+{% endfor %}
+]

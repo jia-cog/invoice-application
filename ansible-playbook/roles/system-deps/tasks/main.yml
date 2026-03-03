@@ -1,0 +1,63 @@
+---
+# System Dependencies Role
+# Installs Python3, Node.js, npm, Nginx, and other system-level packages.
+
+- name: Install base system packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - build-essential
+      - libssl-dev
+      - libffi-dev
+      - git
+      - curl
+      - software-properties-common
+      - acl
+    state: present
+    update_cache: true
+
+- name: Add NodeSource GPG key
+  ansible.builtin.apt_key:
+    url: "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key"
+    state: present
+
+- name: Add NodeSource repository for Node.js {{ nodejs_version }}
+  ansible.builtin.apt_repository:
+    repo: "deb https://deb.nodesource.com/node_{{ nodejs_version }}.x nodistro main"
+    state: present
+    filename: nodesource
+
+- name: Install Node.js and npm
+  ansible.builtin.apt:
+    name:
+      - nodejs
+    state: present
+    update_cache: true
+
+- name: Install Nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+
+- name: Ensure Nginx is enabled and started
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    system: true
+    state: present
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ app_base_dir }}"
+    create_home: false

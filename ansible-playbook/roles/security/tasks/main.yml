@@ -1,0 +1,129 @@
+---
+# Security Role
+# Handles SSL certificates, firewall rules, CORS hardening, and secret management.
+
+# --- Firewall Configuration ---
+- name: Install UFW firewall
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Set UFW default deny incoming
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: Set UFW default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+
+- name: Allow SSH through firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ allowed_ssh_port }}"
+    proto: tcp
+
+- name: Allow HTTP through firewall
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: Allow HTTPS through firewall
+  community.general.ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
+- name: Enable UFW firewall
+  community.general.ufw:
+    state: enabled
+
+# --- SSL Certificate Setup ---
+- name: Ensure SSL directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/ssl/certs
+    - /etc/ssl/private
+
+- name: Check if SSL certificate exists
+  ansible.builtin.stat:
+    path: "{{ ssl_certificate_path }}"
+  register: ssl_cert_stat
+
+- name: Generate self-signed SSL certificate (if none provided)
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes -days 365 -newkey rsa:2048
+      -keyout {{ ssl_certificate_key_path }}
+      -out {{ ssl_certificate_path }}
+      -subj "/C=US/ST=State/L=City/O=Organization/CN={{ frontend_domain }}"
+  when:
+    - enable_ssl
+    - not ssl_cert_stat.stat.exists
+  changed_when: true
+  notify: Restart nginx
+
+- name: Set SSL private key permissions
+  ansible.builtin.file:
+    path: "{{ ssl_certificate_key_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: enable_ssl
+
+# --- CORS Hardening ---
+- name: Deploy hardened backend configuration overlay
+  ansible.builtin.template:
+    src: cors_config.py.j2
+    dest: "{{ backend_dir }}/cors_config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice backend
+
+# --- Secret Management ---
+- name: Ensure backend .env has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+
+- name: Ensure database file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ db_file }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: db_file is defined
+
+# --- System Hardening ---
+- name: Disable root SSH login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin no"
+    state: present
+  notify: Restart sshd
+
+- name: Disable password authentication for SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication no"
+    state: present
+  notify: Restart sshd
+
+- name: Set correct permissions on application directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
