@@ -34,7 +34,7 @@ def register():
         db.session.commit()
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(identity=str(user.id), additional_claims={"is_admin": user.is_admin})
         
         return jsonify({
             'message': 'User created successfully',
@@ -61,7 +61,7 @@ def login():
             return jsonify({'error': 'Invalid credentials'}), 401
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(identity=str(user.id), additional_claims={"is_admin": user.is_admin})
         
         return jsonify({
             'message': 'Login successful',
