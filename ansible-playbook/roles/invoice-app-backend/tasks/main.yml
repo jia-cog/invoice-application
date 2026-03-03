@@ -3,6 +3,14 @@
 # Sets up the Flask application with virtual environment, dependencies,
 # environment configuration, and systemd service management.
 
+- name: Ensure application base directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
 - name: Clone or update application repository
   ansible.builtin.git:
     repo: "{{ app_repo_url }}"
