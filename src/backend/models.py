@@ -1,8 +1,9 @@
+from decimal import Decimal
+
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Numeric
-import json
 
 db = SQLAlchemy()
 
@@ -76,10 +77,10 @@ class Invoice(db.Model):
             'issue_date': self.issue_date.isoformat(),
             'due_date': self.due_date.isoformat(),
             'status': self.status,
-            'subtotal': self.subtotal,
-            'tax_rate': self.tax_rate,
-            'tax_amount': self.tax_amount,
-            'total_amount': self.total_amount,
+            'subtotal': float(self.subtotal) if self.subtotal is not None else 0.0,
+            'tax_rate': float(self.tax_rate) if self.tax_rate is not None else 0.0,
+            'tax_amount': float(self.tax_amount) if self.tax_amount is not None else 0.0,
+            'total_amount': float(self.total_amount) if self.total_amount is not None else 0.0,
             'notes': self.notes,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
@@ -102,9 +103,9 @@ class InvoiceItem(db.Model):
         return {
             'id': self.id,
             'description': self.description,
-            'quantity': self.quantity,
-            'unit_price': self.unit_price,
-            'total': self.total
+            'quantity': float(self.quantity) if self.quantity is not None else 0.0,
+            'unit_price': float(self.unit_price) if self.unit_price is not None else 0.0,
+            'total': float(self.total) if self.total is not None else 0.0
         }
 
 class Report(db.Model):
