@@ -1,0 +1,4 @@
+---
+# Default variables for invoice-app-backend role
+backend_port: 5001
+backend_workers: 4

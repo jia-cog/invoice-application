@@ -1,0 +1,82 @@
+---
+# Production environment configuration for the Invoice Application
+
+# -------------------------------------------------------------------
+# Application settings
+# -------------------------------------------------------------------
+app_name: invoice-app
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-app
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_version: master
+
+# -------------------------------------------------------------------
+# Backend settings
+# -------------------------------------------------------------------
+backend_port: 5001
+backend_workers: 4
+backend_dir: "{{ app_base_dir }}/src/backend"
+backend_venv_dir: "{{ app_base_dir }}/.venv"
+
+# Python dependencies (there is no requirements.txt in the repo by default,
+# but the repo now includes one; we install from it and also list explicit
+# packages as a fallback)
+backend_pip_packages:
+  - flask
+  - flask-sqlalchemy
+  - flask-jwt-extended
+  - flask-cors
+  - werkzeug
+  - gunicorn
+  - python-dotenv
+
+# -------------------------------------------------------------------
+# Database settings
+# -------------------------------------------------------------------
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+database_dir: "{{ backend_dir }}/instance"
+
+# Safety flag: set to true only on first-time provisioning to run init_db.py.
+# WARNING: init_db.py calls db.drop_all() which destroys all data.
+first_time_provision: false
+
+# -------------------------------------------------------------------
+# Security / Secrets
+# -------------------------------------------------------------------
+# IMPORTANT: Override these in your Ansible Vault or via --extra-vars.
+# DO NOT use these defaults in production.
+jwt_secret_key: "CHANGE_ME_use_ansible_vault_for_production"
+flask_secret_key: "CHANGE_ME_use_ansible_vault_for_production"
+
+# -------------------------------------------------------------------
+# Frontend settings
+# -------------------------------------------------------------------
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+frontend_build_dir: "{{ frontend_dir }}/build"
+frontend_domain: "invoice.example.com"
+frontend_api_url: "https://{{ frontend_domain }}/api"
+
+# Node.js version (major version for NodeSource setup)
+nodejs_major_version: "18"
+
+# -------------------------------------------------------------------
+# Webserver (Nginx)
+# -------------------------------------------------------------------
+nginx_ssl_cert: "/etc/ssl/certs/{{ frontend_domain }}.pem"
+nginx_ssl_key: "/etc/ssl/private/{{ frontend_domain }}.key"
+nginx_enable_ssl: true
+
+# -------------------------------------------------------------------
+# CORS configuration
+# -------------------------------------------------------------------
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"
+
+# -------------------------------------------------------------------
+# Firewall
+# -------------------------------------------------------------------
+firewall_allowed_ports:
+  - { port: 22, proto: tcp }
+  - { port: 80, proto: tcp }
+  - { port: 443, proto: tcp }

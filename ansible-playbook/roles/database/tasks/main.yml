@@ -1,0 +1,79 @@
+---
+# Database Role
+# Handles SQLite database setup with safety guards for init_db.py.
+#
+# CRITICAL: init_db.py calls db.drop_all() which destroys all data.
+# The database is only initialized when:
+#   1. first_time_provision is explicitly set to true, AND
+#   2. The database file does not already exist.
+# This prevents accidental data loss on redeployments.
+
+- name: Ensure database directory exists
+  ansible.builtin.file:
+    path: "{{ database_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Check if database file already exists
+  ansible.builtin.stat:
+    path: "{{ database_dir }}/invoice_app.db"
+  register: db_file
+
+- name: Display database status
+  ansible.builtin.debug:
+    msg: >-
+      Database file {{ 'EXISTS' if db_file.stat.exists else 'DOES NOT EXIST' }}.
+      first_time_provision={{ first_time_provision }}.
+      {{ 'Database initialization will be SKIPPED (database already exists).'
+         if db_file.stat.exists
+         else ('Database will be initialized.' if first_time_provision | bool
+               else 'Database initialization SKIPPED (set first_time_provision=true to initialize).') }}
+
+- name: Initialize database schema (first-time provisioning only)
+  ansible.builtin.command:
+    cmd: "{{ backend_venv_dir }}/bin/python3 {{ backend_dir }}/init_db.py"
+    chdir: "{{ backend_dir }}"
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when:
+    - first_time_provision | bool
+    - not db_file.stat.exists
+  register: db_init_result
+
+- name: Display database initialization result
+  ansible.builtin.debug:
+    msg: "{{ db_init_result.stdout | default('Database initialization was skipped.') }}"
+  when: db_init_result is defined
+
+- name: Ensure database file permissions are correct
+  ansible.builtin.file:
+    path: "{{ database_dir }}/invoice_app.db"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: db_file.stat.exists or (first_time_provision | bool)
+
+- name: Create database backup directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/backups"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Set up daily database backup cron job
+  ansible.builtin.cron:
+    name: "Invoice app SQLite backup"
+    minute: "0"
+    hour: "2"
+    job: >-
+      cp {{ database_dir }}/invoice_app.db
+      {{ app_base_dir }}/backups/invoice_app_$(date +\%Y\%m\%d_\%H\%M\%S).db
+      && find {{ app_base_dir }}/backups -name '*.db' -mtime +7 -delete
+    user: "{{ app_user }}"

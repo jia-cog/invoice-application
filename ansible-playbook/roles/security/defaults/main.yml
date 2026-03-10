@@ -1,0 +1,7 @@
+---
+# Default variables for security role
+nginx_enable_ssl: true
+firewall_allowed_ports:
+  - { port: 22, proto: tcp }
+  - { port: 80, proto: tcp }
+  - { port: 443, proto: tcp }

@@ -1,0 +1,25 @@
+# Gunicorn configuration for the Invoice Application
+# Managed by Ansible - DO NOT EDIT MANUALLY
+
+import multiprocessing
+
+# Server socket
+bind = "127.0.0.1:{{ backend_port }}"
+
+# Worker processes
+workers = {{ backend_workers }}
+worker_class = "sync"
+worker_connections = 1000
+timeout = 120
+keepalive = 5
+
+# Logging
+accesslog = "/var/log/invoice-app/gunicorn-access.log"
+errorlog = "/var/log/invoice-app/gunicorn-error.log"
+loglevel = "info"
+
+# Process naming
+proc_name = "invoice-backend"
+
+# Server mechanics
+preload_app = True

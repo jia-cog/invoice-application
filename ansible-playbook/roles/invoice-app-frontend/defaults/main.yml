@@ -1,0 +1,3 @@
+---
+# Default variables for invoice-app-frontend role
+frontend_api_url: "https://invoice.example.com/api"

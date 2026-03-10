@@ -1,0 +1,99 @@
+---
+# Security Role
+# Configures firewall, SSL certificates, secret management, and CORS hardening.
+
+- name: Configure UFW defaults - deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Configure UFW defaults - allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow required ports through firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port | string }}"
+    proto: "{{ item.proto }}"
+  loop: "{{ firewall_allowed_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+- name: Create SSL certificate directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/ssl/certs
+    - /etc/ssl/private
+
+- name: Check if SSL certificate exists
+  ansible.builtin.stat:
+    path: "{{ nginx_ssl_cert }}"
+  register: ssl_cert_stat
+
+- name: Generate self-signed SSL certificate (for initial setup)
+  ansible.builtin.command: >
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048
+    -keyout {{ nginx_ssl_key }}
+    -out {{ nginx_ssl_cert }}
+    -subj "/CN={{ frontend_domain }}/O=Invoice App/C=US"
+  when: nginx_enable_ssl and not ssl_cert_stat.stat.exists
+  notify: Reload nginx
+
+- name: Set SSL certificate permissions
+  ansible.builtin.file:
+    path: "{{ nginx_ssl_cert }}"
+    mode: "0644"
+    owner: root
+    group: root
+  when: nginx_enable_ssl
+
+- name: Set SSL key permissions
+  ansible.builtin.file:
+    path: "{{ nginx_ssl_key }}"
+    mode: "0600"
+    owner: root
+    group: root
+  when: nginx_enable_ssl
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+    comment: "Invoice Application service account"
+
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    system: true
+  # Run before user creation; Ansible processes in order but we keep it explicit
+  tags: [security]
+
+- name: Deploy backend environment file with secrets
+  ansible.builtin.template:
+    src: env.production.j2
+    dest: "{{ app_base_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  notify: Restart invoice-backend
+  tags: [secrets]
+
+- name: Deploy CORS configuration patch
+  ansible.builtin.template:
+    src: cors_config.py.j2
+    dest: "{{ backend_dir }}/cors_config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice-backend
+  tags: [cors]

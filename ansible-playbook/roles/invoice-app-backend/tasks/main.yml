@@ -1,0 +1,106 @@
+---
+# Invoice App Backend Role
+# Sets up the Flask application with virtual environment, dependencies,
+# environment variables, and systemd service management.
+
+- name: Clone or update application repository
+  ansible.builtin.git:
+    repo: "{{ app_repo_url }}"
+    dest: "{{ app_base_dir }}"
+    version: "{{ app_repo_version }}"
+    force: false
+    update: true
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv {{ backend_venv_dir }}
+    creates: "{{ backend_venv_dir }}/bin/activate"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Upgrade pip in virtual environment
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ backend_venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Install Python dependencies from requirements.txt
+  ansible.builtin.pip:
+    requirements: "{{ app_base_dir }}/requirements.txt"
+    virtualenv: "{{ backend_venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  register: pip_requirements
+  ignore_errors: true
+
+- name: Install Python dependencies (explicit list as fallback)
+  ansible.builtin.pip:
+    name: "{{ backend_pip_packages }}"
+    virtualenv: "{{ backend_venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when: pip_requirements is failed
+
+- name: Install gunicorn for production WSGI serving
+  ansible.builtin.pip:
+    name: gunicorn
+    virtualenv: "{{ backend_venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Deploy backend environment file
+  ansible.builtin.template:
+    src: backend-env.j2
+    dest: "{{ backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  notify: Restart invoice-backend
+
+- name: Deploy gunicorn configuration
+  ansible.builtin.template:
+    src: gunicorn.conf.py.j2
+    dest: "{{ backend_dir }}/gunicorn.conf.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice-backend
+
+- name: Deploy WSGI entry point
+  ansible.builtin.template:
+    src: wsgi.py.j2
+    dest: "{{ backend_dir }}/wsgi.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice-backend
+
+- name: Deploy systemd service file for Flask backend
+  ansible.builtin.template:
+    src: invoice-backend.service.j2
+    dest: /etc/systemd/system/invoice-backend.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart invoice-backend
+
+- name: Ensure backend service is enabled and started
+  ansible.builtin.systemd:
+    name: invoice-backend
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Set ownership of application directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: true
