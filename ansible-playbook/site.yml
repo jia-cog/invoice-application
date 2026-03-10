@@ -20,6 +20,17 @@
     - group_vars/production.yml
 
   pre_tasks:
+    - name: Assert production secrets are configured
+      ansible.builtin.assert:
+        that:
+          - jwt_secret_key != 'CHANGE-ME-USE-ANSIBLE-VAULT'
+          - flask_secret_key != 'CHANGE-ME-USE-ANSIBLE-VAULT'
+        fail_msg: >
+          Production secrets are not configured. Please set vault_jwt_secret_key
+          and vault_flask_secret_key using Ansible Vault before deploying.
+          See README.md for instructions.
+      tags: always
+
     - name: Update apt cache
       ansible.builtin.apt:
         update_cache: true
@@ -42,11 +53,11 @@
     - role: security
       tags: security
 
-    - role: database
-      tags: database
-
     - role: invoice-app-backend
       tags: backend
+
+    - role: database
+      tags: database
 
     - role: invoice-app-frontend
       tags: frontend

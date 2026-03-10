@@ -93,6 +93,17 @@
     group: "{{ app_group }}"
   notify: Restart invoice-backend
 
+# --- CORS Configuration ---
+# The app's config.py hardcodes CORS_ORIGINS with a wildcard '*'.
+# Patch it at deploy time to read from the CORS_ORIGINS env var instead.
+
+- name: Patch config.py to read CORS_ORIGINS from environment
+  ansible.builtin.lineinfile:
+    path: "{{ backend_dir }}/config.py"
+    regexp: "^\\s*CORS_ORIGINS\\s*="
+    line: "    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'https://localhost').split(',')"
+  notify: Restart invoice-backend
+
 # --- Fail2ban Configuration ---
 
 - name: Configure fail2ban for Nginx
