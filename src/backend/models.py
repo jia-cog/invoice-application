@@ -63,8 +63,12 @@ class Invoice(db.Model):
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
     
     def calculate_totals(self):
-        self.subtotal = sum(item.total for item in self.items)
-        self.tax_amount = self.subtotal * (self.tax_rate / 100)
+        self.subtotal = sum(
+            (Decimal(str(item.total)) for item in self.items),
+            Decimal('0')
+        )
+        tax_rate = Decimal(str(self.tax_rate)) if self.tax_rate else Decimal('0')
+        self.tax_amount = self.subtotal * (tax_rate / Decimal('100'))
         self.total_amount = self.subtotal + self.tax_amount
     
     def to_dict(self):
@@ -97,7 +101,9 @@ class InvoiceItem(db.Model):
     total = db.Column(Numeric(12, 2), nullable=False)
     
     def calculate_total(self):
-        self.total = self.quantity * self.unit_price
+        qty = Decimal(str(self.quantity)) if self.quantity else Decimal('0')
+        price = Decimal(str(self.unit_price)) if self.unit_price else Decimal('0')
+        self.total = qty * price
     
     def to_dict(self):
         return {
