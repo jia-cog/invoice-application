@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import Numeric
 import json
 
 db = SQLAlchemy()
@@ -46,11 +47,11 @@ class Invoice(db.Model):
     due_date = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), default='draft')  # draft, sent, paid, overdue
     
-    # Financial information
-    subtotal = db.Column(db.Float, default=0.0)
-    tax_rate = db.Column(db.Float, default=0.0)
-    tax_amount = db.Column(db.Float, default=0.0)
-    total_amount = db.Column(db.Float, default=0.0)
+    # Financial information — use Numeric for monetary precision
+    subtotal = db.Column(Numeric(12, 2), default=0.0)
+    tax_rate = db.Column(Numeric(5, 2), default=0.0)
+    tax_amount = db.Column(Numeric(12, 2), default=0.0)
+    total_amount = db.Column(Numeric(12, 2), default=0.0)
     
     # Additional fields
     notes = db.Column(db.Text)
@@ -90,9 +91,9 @@ class InvoiceItem(db.Model):
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
     
     description = db.Column(db.String(500), nullable=False)
-    quantity = db.Column(db.Float, nullable=False, default=1.0)
-    unit_price = db.Column(db.Float, nullable=False)
-    total = db.Column(db.Float, nullable=False)
+    quantity = db.Column(Numeric(10, 2), nullable=False, default=1.0)
+    unit_price = db.Column(Numeric(12, 2), nullable=False)
+    total = db.Column(Numeric(12, 2), nullable=False)
     
     def calculate_total(self):
         self.total = self.quantity * self.unit_price
@@ -113,8 +114,8 @@ class Report(db.Model):
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
     
-    # Report data (stored as JSON)
-    data = db.Column(db.Text)  # JSON string containing report metrics
+    # Report data (native JSON type for PostgreSQL; falls back to Text on SQLite)
+    data = db.Column(db.JSON)  # JSON object containing report metrics
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -122,10 +123,10 @@ class Report(db.Model):
     user = db.relationship('User', backref='reports')
     
     def set_data(self, data_dict):
-        self.data = json.dumps(data_dict)
+        self.data = data_dict
     
     def get_data(self):
-        return json.loads(self.data) if self.data else {}
+        return self.data if self.data else {}
     
     def to_dict(self):
         return {
