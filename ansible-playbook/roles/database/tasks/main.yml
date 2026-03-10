@@ -1,0 +1,108 @@
+---
+# Database Role - SQLite setup with safe initialization guards
+# CRITICAL: The init_db.py script calls db.drop_all() which is destructive.
+# We only run it on first-time provisioning, not on every redeploy.
+
+- name: Ensure database directory exists
+  ansible.builtin.file:
+    path: "{{ database_dir }}"
+    state: directory
+    mode: "0750"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Check if database file already exists
+  ansible.builtin.stat:
+    path: "{{ database_file }}"
+  register: db_file_check
+
+- name: Check if database has tables (existing data)
+  ansible.builtin.command: >
+    sqlite3 {{ database_file }} "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('user', 'invoice', 'invoice_item', 'report');"
+  register: db_table_count
+  changed_when: false
+  failed_when: false
+  when: db_file_check.stat.exists
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Set database needs initialization fact
+  ansible.builtin.set_fact:
+    db_needs_init: >-
+      {{
+        not db_file_check.stat.exists
+        or (db_table_count.stdout | default('0') | trim | int) < 4
+      }}
+
+- name: Display database initialization status
+  ansible.builtin.debug:
+    msg: >-
+      Database file exists: {{ db_file_check.stat.exists }}.
+      Tables found: {{ db_table_count.stdout | default('0') | trim }}.
+      Needs initialization: {{ db_needs_init }}.
+
+# Use the Flask app context to safely create tables without dropping them.
+# We intentionally do NOT run init_db.py because it calls db.drop_all().
+# Instead, we use db.create_all() via the app factory which only creates
+# missing tables without destroying existing data.
+- name: Initialize database schema (first-time only)
+  ansible.builtin.command: >
+    {{ backend_venv_dir }}/bin/python3 -c "
+    import sys
+    sys.path.insert(0, '{{ backend_dir }}')
+    from app import create_app
+    from models import db
+    app = create_app()
+    with app.app_context():
+        db.create_all()
+        print('Database tables created successfully')
+    "
+  args:
+    chdir: "{{ backend_dir }}"
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when: db_needs_init | bool
+
+- name: Set database file permissions
+  ansible.builtin.file:
+    path: "{{ database_file }}"
+    mode: "0640"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  when: db_file_check.stat.exists or (db_needs_init | bool)
+
+- name: Ensure scripts directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/scripts"
+    state: directory
+    mode: "0750"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Ensure backup directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/backups"
+    state: directory
+    mode: "0750"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Create database backup script
+  ansible.builtin.template:
+    src: backup-db.sh.j2
+    dest: "{{ app_base_dir }}/scripts/backup-db.sh"
+    mode: "0750"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Set up daily database backup cron job
+  ansible.builtin.cron:
+    name: "Invoice app database backup"
+    minute: "0"
+    hour: "2"
+    job: "{{ app_base_dir }}/scripts/backup-db.sh"
+    user: "{{ app_user }}"

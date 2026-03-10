@@ -1,0 +1,109 @@
+---
+# Security Role - Firewall, SSL, CORS, and secret management
+
+- name: Install security packages
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - certbot
+      - python3-certbot-nginx
+      - fail2ban
+    state: present
+
+# --- Firewall Configuration ---
+
+- name: Set UFW default deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set UFW default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow required ports through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.split('/')[0] }}"
+    proto: "{{ item.split('/')[1] }}"
+  loop: "{{ firewall_allowed_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# --- SSL Certificate Setup ---
+
+- name: Create SSL directory for private keys
+  ansible.builtin.file:
+    path: /etc/ssl/private
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+- name: Check if SSL certificate exists
+  ansible.builtin.stat:
+    path: "{{ ssl_certificate_path }}"
+  register: ssl_cert_check
+
+- name: Generate self-signed SSL certificate (for initial setup)
+  ansible.builtin.command: >
+    openssl req -x509 -nodes -days 365
+    -newkey rsa:2048
+    -keyout {{ ssl_private_key_path }}
+    -out {{ ssl_certificate_path }}
+    -subj "/C=US/ST=State/L=City/O=Organization/CN={{ server_domain }}"
+  when: not ssl_cert_check.stat.exists
+  notify: Reload nginx
+
+- name: Set SSL certificate permissions
+  ansible.builtin.file:
+    path: "{{ ssl_certificate_path }}"
+    mode: "0644"
+    owner: root
+    group: root
+  when: not ssl_cert_check.stat.exists
+
+- name: Set SSL private key permissions
+  ansible.builtin.file:
+    path: "{{ ssl_private_key_path }}"
+    mode: "0600"
+    owner: root
+    group: root
+  when: not ssl_cert_check.stat.exists
+
+# --- Secret Management ---
+
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/.secrets"
+    state: directory
+    mode: "0700"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Deploy environment file with secrets
+  ansible.builtin.template:
+    src: env.production.j2
+    dest: "{{ app_base_dir }}/.secrets/.env"
+    mode: "0600"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  notify: Restart invoice-backend
+
+# --- Fail2ban Configuration ---
+
+- name: Configure fail2ban for Nginx
+  ansible.builtin.template:
+    src: fail2ban-nginx.conf.j2
+    dest: /etc/fail2ban/jail.d/nginx.conf
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Ensure fail2ban is enabled and started
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: started
+    enabled: true

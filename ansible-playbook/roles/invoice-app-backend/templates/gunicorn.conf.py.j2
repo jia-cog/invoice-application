@@ -1,0 +1,37 @@
+# Gunicorn Configuration - Managed by Ansible
+# Production WSGI server for the Invoice Application
+
+import multiprocessing
+
+# Server socket
+bind = "{{ gunicorn_bind }}"
+
+# Worker processes
+workers = {{ gunicorn_workers }}
+worker_class = "sync"
+worker_connections = 1000
+timeout = {{ gunicorn_timeout }}
+keepalive = 5
+
+# Logging
+accesslog = "{{ gunicorn_access_log }}"
+errorlog = "{{ gunicorn_error_log }}"
+loglevel = "{{ gunicorn_log_level }}"
+access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
+
+# Process naming
+proc_name = "{{ app_name }}"
+
+# Server mechanics
+daemon = False
+pidfile = None
+umask = 0o022
+tmp_upload_dir = None
+
+# Preloading
+preload_app = True
+
+# Graceful restart
+graceful_timeout = 30
+max_requests = 1000
+max_requests_jitter = 50
