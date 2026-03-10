@@ -62,6 +62,11 @@
     group: root
   when: nginx_enable_ssl
 
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    system: true
+
 - name: Create application user
   ansible.builtin.user:
     name: "{{ app_user }}"
@@ -70,13 +75,6 @@
     shell: /usr/sbin/nologin
     create_home: false
     comment: "Invoice Application service account"
-
-- name: Create application group
-  ansible.builtin.group:
-    name: "{{ app_group }}"
-    system: true
-  # Run before user creation; Ansible processes in order but we keep it explicit
-  tags: [security]
 
 - name: Deploy backend environment file with secrets
   ansible.builtin.template:
@@ -88,10 +86,10 @@
   notify: Restart invoice-backend
   tags: [secrets]
 
-- name: Deploy CORS configuration patch
+- name: Deploy production config.py with restricted CORS
   ansible.builtin.template:
-    src: cors_config.py.j2
-    dest: "{{ backend_dir }}/cors_config.py"
+    src: config_production.py.j2
+    dest: "{{ backend_dir }}/config.py"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0644"

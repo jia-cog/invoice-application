@@ -15,7 +15,7 @@
 - name: Install npm dependencies
   community.general.npm:
     path: "{{ frontend_dir }}"
-    production: true
+    production: false
     state: present
   become: true
   become_user: "{{ app_user }}"

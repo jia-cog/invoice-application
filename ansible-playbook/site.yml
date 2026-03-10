@@ -32,11 +32,11 @@
     - role: security
       tags: [security]
 
-    - role: database
-      tags: [database]
-
     - role: invoice-app-backend
       tags: [backend]
+
+    - role: database
+      tags: [database]
 
     - role: invoice-app-frontend
       tags: [frontend]
