@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -7,7 +9,23 @@ from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
 
+_REQUIRED_ENV_VARS = ('JWT_SECRET_KEY', 'SECRET_KEY')
+
+
+def _validate_environment() -> None:
+    """Ensure all required environment variables are present before startup."""
+    missing = [var for var in _REQUIRED_ENV_VARS if not os.environ.get(var)]
+    if missing:
+        raise RuntimeError(
+            "Missing required environment variable(s): "
+            + ", ".join(missing)
+            + ". Set them before starting the application."
+        )
+
+
 def create_app():
+    _validate_environment()
+
     app = Flask(__name__)
     app.config.from_object(Config)
     

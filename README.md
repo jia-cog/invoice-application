@@ -42,6 +42,32 @@ python3 init_db.py
 python3 app.py
 ```
 
+### Required Environment Variables (Production)
+
+The application requires the following environment variables to be set before it will
+start. This prevents the use of weak, hardcoded fallback secrets in production.
+
+| Variable | Purpose |
+|---|---|
+| `JWT_SECRET_KEY` | Signing key for JSON Web Tokens (JWT) |
+| `SECRET_KEY` | Flask session / CSRF secret key |
+
+Generate strong, unique values with Python:
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Set them in your environment before running the server:
+
+```bash
+export JWT_SECRET_KEY="<generated-value>"
+export SECRET_KEY="<generated-value>"
+```
+
+> **Note:** The bootstrap sample-data script (`src/backend/bootstrap/bootstrap_sample_data.py`)
+> is intended for **development only** and will refuse to run when `ENV=production`.
+
 ### Frontend Setup
 
 1. Install Node.js dependencies:
