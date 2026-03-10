@@ -1,0 +1,3 @@
+---
+# Default variables for system-deps role
+nodejs_major_version: "18"

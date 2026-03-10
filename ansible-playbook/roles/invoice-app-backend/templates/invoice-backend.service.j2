@@ -1,0 +1,37 @@
+# Systemd service file for the Invoice Application Backend
+# Managed by Ansible - DO NOT EDIT MANUALLY
+
+[Unit]
+Description=Invoice Application Backend (Gunicorn)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ backend_dir }}
+Environment="PATH={{ backend_venv_dir }}/bin:/usr/local/bin:/usr/bin"
+EnvironmentFile={{ backend_dir }}/.env
+ExecStart={{ backend_venv_dir }}/bin/gunicorn --config {{ backend_dir }}/gunicorn.conf.py wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=invoice-backend
+
+# Security hardening
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ app_base_dir }}
+ReadWritePaths=/var/log/invoice-app
+
+[Install]
+WantedBy=multi-user.target

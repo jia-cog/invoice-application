@@ -1,0 +1,15 @@
+"""
+WSGI entry point for the Invoice Application.
+Managed by Ansible - DO NOT EDIT MANUALLY.
+
+Used by Gunicorn to serve the Flask application in production.
+"""
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+from app import create_app
+
+application = create_app()

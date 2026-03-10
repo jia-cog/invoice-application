@@ -1,0 +1,71 @@
+---
+# System Dependencies Role
+# Installs Python3, Node.js, npm, Nginx, and other system-level packages.
+
+- name: Install base system packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - python3-dev
+      - build-essential
+      - libffi-dev
+      - git
+      - curl
+      - software-properties-common
+      - acl
+    state: present
+
+- name: Check if NodeSource repository is configured
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/nodesource.list
+  register: nodesource_repo
+
+- name: Install NodeSource setup script
+  ansible.builtin.shell: |
+    curl -fsSL https://deb.nodesource.com/setup_{{ nodejs_major_version }}.x | bash -
+  args:
+    creates: /etc/apt/sources.list.d/nodesource.list
+  when: not nodesource_repo.stat.exists
+
+- name: Install Node.js and npm
+  ansible.builtin.apt:
+    name:
+      - nodejs
+    state: present
+    update_cache: true
+
+- name: Install Nginx
+  ansible.builtin.apt:
+    name:
+      - nginx
+    state: present
+
+- name: Ensure Nginx is enabled and started
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Install UFW firewall
+  ansible.builtin.apt:
+    name:
+      - ufw
+    state: present
+
+- name: Verify Python3 version
+  ansible.builtin.command: python3 --version
+  register: python_version
+  changed_when: false
+
+- name: Verify Node.js version
+  ansible.builtin.command: node --version
+  register: node_version
+  changed_when: false
+
+- name: Display installed versions
+  ansible.builtin.debug:
+    msg: |
+      Python: {{ python_version.stdout }}
+      Node.js: {{ node_version.stdout }}

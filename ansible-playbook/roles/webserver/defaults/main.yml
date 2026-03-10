@@ -1,0 +1,3 @@
+---
+# Default variables for webserver role
+nginx_enable_ssl: true

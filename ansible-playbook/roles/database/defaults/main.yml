@@ -1,0 +1,3 @@
+---
+# Default variables for database role
+first_time_provision: false

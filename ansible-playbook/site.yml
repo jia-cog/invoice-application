@@ -1,0 +1,67 @@
+---
+# Invoice Application - Production Deployment Playbook
+#
+# Deploys a full-stack invoicing application consisting of:
+#   - Flask (Python) backend on port 5001
+#   - React.js frontend served as static files
+#   - SQLite database
+#   - Nginx reverse proxy with SSL
+#
+# Usage:
+#   ansible-playbook -i inventories/production.ini site.yml
+#
+# For first-time provisioning (initializes the database):
+#   ansible-playbook -i inventories/production.ini site.yml -e "first_time_provision=true"
+
+- name: Deploy Invoice Application
+  hosts: invoice_servers
+  become: true
+  vars_files:
+    - group_vars/production.yml
+
+  pre_tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+  roles:
+    - role: system-deps
+      tags: [system, deps]
+
+    - role: security
+      tags: [security]
+
+    - role: invoice-app-backend
+      tags: [backend]
+
+    - role: database
+      tags: [database]
+
+    - role: invoice-app-frontend
+      tags: [frontend]
+
+    - role: webserver
+      tags: [webserver]
+
+  post_tasks:
+    - name: Verify backend health check
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ backend_port }}/api/health"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: health_result
+      retries: 5
+      delay: 3
+      until: health_result.status == 200
+      tags: [verify]
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Deployment complete!
+          - Backend: http://127.0.0.1:{{ backend_port }}/api/health
+          - Frontend: https://{{ frontend_domain }}
+          - Health check status: {{ health_result.json.status | default('unknown') }}
+      tags: [verify]
