@@ -1,0 +1,55 @@
+---
+# Frontend Role - React application build and deployment
+# Installs npm dependencies, builds production bundle, configures static serving
+
+- name: Ensure frontend directory exists
+  ansible.builtin.stat:
+    path: "{{ frontend_dir }}/package.json"
+  register: frontend_package_json
+
+- name: Fail if frontend source is missing
+  ansible.builtin.fail:
+    msg: "Frontend package.json not found at {{ frontend_dir }}/package.json. Ensure the repository was cloned correctly."
+  when: not frontend_package_json.stat.exists
+
+- name: Install npm dependencies
+  ansible.builtin.command: npm ci --production=false
+  args:
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  register: npm_install_result
+  changed_when: "'added' in npm_install_result.stdout"
+
+- name: Build React production bundle
+  ansible.builtin.command: npm run build
+  args:
+    chdir: "{{ frontend_dir }}"
+  environment:
+    REACT_APP_API_URL: "{{ api_base_url }}"
+    NODE_ENV: production
+    CI: "true"
+  become: true
+  become_user: "{{ app_user }}"
+  register: npm_build_result
+  changed_when: true
+  notify: Reload nginx
+
+- name: Verify build directory was created
+  ansible.builtin.stat:
+    path: "{{ frontend_build_dir }}"
+  register: build_dir_check
+
+- name: Fail if build directory does not exist
+  ansible.builtin.fail:
+    msg: "React build failed - {{ frontend_build_dir }} does not exist"
+  when: not build_dir_check.stat.exists
+
+- name: Set correct ownership on build directory
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    state: directory
+    recurse: true
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
