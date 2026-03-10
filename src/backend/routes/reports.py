@@ -46,14 +46,14 @@ def generate_report():
         
         # Calculate report metrics
         total_invoices = len(invoices)
-        total_revenue = sum(invoice.total_amount for invoice in invoices)
+        total_revenue = float(sum(float(inv.total_amount or 0) for inv in invoices))
         paid_invoices = [inv for inv in invoices if inv.status == 'paid']
         pending_invoices = [inv for inv in invoices if inv.status in ['draft', 'sent']]
         overdue_invoices = [inv for inv in invoices if inv.status == 'overdue']
         
-        paid_revenue = sum(invoice.total_amount for invoice in paid_invoices)
-        pending_revenue = sum(invoice.total_amount for invoice in pending_invoices)
-        overdue_revenue = sum(invoice.total_amount for invoice in overdue_invoices)
+        paid_revenue = float(sum(float(inv.total_amount or 0) for inv in paid_invoices))
+        pending_revenue = float(sum(float(inv.total_amount or 0) for inv in pending_invoices))
+        overdue_revenue = float(sum(float(inv.total_amount or 0) for inv in overdue_invoices))
         
         # Monthly breakdown
         monthly_data = {}
@@ -66,7 +66,7 @@ def generate_report():
                     'revenue': 0
                 }
             monthly_data[month_key]['count'] += 1
-            monthly_data[month_key]['revenue'] += invoice.total_amount
+            monthly_data[month_key]['revenue'] += float(invoice.total_amount or 0)
         
         # Status breakdown
         status_breakdown = {
@@ -86,7 +86,7 @@ def generate_report():
                     'revenue': 0
                 }
             customer_data[invoice.customer_name]['count'] += 1
-            customer_data[invoice.customer_name]['revenue'] += invoice.total_amount
+            customer_data[invoice.customer_name]['revenue'] += float(invoice.total_amount or 0)
         
         top_customers = sorted(customer_data.values(), key=lambda x: x['revenue'], reverse=True)[:5]
         
@@ -151,8 +151,8 @@ def get_dashboard_data():
         
         # Calculate metrics
         total_invoices = len(all_invoices)
-        total_revenue = sum(invoice.total_amount for invoice in all_invoices)
-        monthly_revenue = sum(invoice.total_amount for invoice in current_month_invoices)
+        total_revenue = float(sum(float(inv.total_amount or 0) for inv in all_invoices))
+        monthly_revenue = float(sum(float(inv.total_amount or 0) for inv in current_month_invoices))
         
         paid_invoices = [inv for inv in all_invoices if inv.status == 'paid']
         pending_invoices = [inv for inv in all_invoices if inv.status in ['draft', 'sent']]

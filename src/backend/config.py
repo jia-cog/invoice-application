@@ -1,10 +1,31 @@
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def _engine_options():
+    """Return connection pool settings for PostgreSQL; empty dict for SQLite."""
+    uri = os.environ.get('DATABASE_URL') or \
+        'postgresql://invoice_user:invoice_pass@localhost:5432/invoice_app'
+    if uri.startswith('sqlite'):
+        return {}
+    return {
+        'pool_size': 10,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+        'max_overflow': 20,
+    }
 
 class Config:
     # Database configuration
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///invoice_app.db'
+    # Default to PostgreSQL; fall back to SQLite for backwards compatibility
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+        'postgresql://invoice_user:invoice_pass@localhost:5432/invoice_app'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # Connection pool settings (applicable to PostgreSQL only)
+    SQLALCHEMY_ENGINE_OPTIONS = _engine_options()
     
     # JWT configuration
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your-secret-key-change-in-production'

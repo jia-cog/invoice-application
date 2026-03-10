@@ -16,6 +16,7 @@ platformdirs==4.3.8
 PyJWT==2.10.1
 pylint==3.3.7
 python-dotenv==1.1.1
+psycopg2-binary==2.9.10
 SQLAlchemy==2.0.41
 tomlkit==0.13.3
 typing_extensions==4.14.1

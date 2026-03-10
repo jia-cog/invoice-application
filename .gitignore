@@ -7,3 +7,5 @@ src/backend/tests/__pycache__/*
 *.pyc
 *.DS_Store
 src/backend/instance/invoice_app.db
+src/backend/.env
+.env

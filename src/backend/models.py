@@ -1,7 +1,9 @@
+from decimal import Decimal
+
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-import json
+from sqlalchemy import Numeric
 
 db = SQLAlchemy()
 
@@ -46,11 +48,11 @@ class Invoice(db.Model):
     due_date = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), default='draft')  # draft, sent, paid, overdue
     
-    # Financial information
-    subtotal = db.Column(db.Float, default=0.0)
-    tax_rate = db.Column(db.Float, default=0.0)
-    tax_amount = db.Column(db.Float, default=0.0)
-    total_amount = db.Column(db.Float, default=0.0)
+    # Financial information — use Numeric for monetary precision
+    subtotal = db.Column(Numeric(12, 2), default=0.0)
+    tax_rate = db.Column(Numeric(5, 2), default=0.0)
+    tax_amount = db.Column(Numeric(12, 2), default=0.0)
+    total_amount = db.Column(Numeric(12, 2), default=0.0)
     
     # Additional fields
     notes = db.Column(db.Text)
@@ -61,8 +63,12 @@ class Invoice(db.Model):
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
     
     def calculate_totals(self):
-        self.subtotal = sum(item.total for item in self.items)
-        self.tax_amount = self.subtotal * (self.tax_rate / 100)
+        self.subtotal = sum(
+            (Decimal(str(item.total)) for item in self.items),
+            Decimal('0')
+        )
+        tax_rate = Decimal(str(self.tax_rate)) if self.tax_rate else Decimal('0')
+        self.tax_amount = self.subtotal * (tax_rate / Decimal('100'))
         self.total_amount = self.subtotal + self.tax_amount
     
     def to_dict(self):
@@ -75,10 +81,10 @@ class Invoice(db.Model):
             'issue_date': self.issue_date.isoformat(),
             'due_date': self.due_date.isoformat(),
             'status': self.status,
-            'subtotal': self.subtotal,
-            'tax_rate': self.tax_rate,
-            'tax_amount': self.tax_amount,
-            'total_amount': self.total_amount,
+            'subtotal': float(self.subtotal) if self.subtotal is not None else 0.0,
+            'tax_rate': float(self.tax_rate) if self.tax_rate is not None else 0.0,
+            'tax_amount': float(self.tax_amount) if self.tax_amount is not None else 0.0,
+            'total_amount': float(self.total_amount) if self.total_amount is not None else 0.0,
             'notes': self.notes,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
@@ -90,20 +96,22 @@ class InvoiceItem(db.Model):
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
     
     description = db.Column(db.String(500), nullable=False)
-    quantity = db.Column(db.Float, nullable=False, default=1.0)
-    unit_price = db.Column(db.Float, nullable=False)
-    total = db.Column(db.Float, nullable=False)
+    quantity = db.Column(Numeric(10, 2), nullable=False, default=1.0)
+    unit_price = db.Column(Numeric(12, 2), nullable=False)
+    total = db.Column(Numeric(12, 2), nullable=False)
     
     def calculate_total(self):
-        self.total = self.quantity * self.unit_price
+        qty = Decimal(str(self.quantity)) if self.quantity else Decimal('0')
+        price = Decimal(str(self.unit_price)) if self.unit_price else Decimal('0')
+        self.total = qty * price
     
     def to_dict(self):
         return {
             'id': self.id,
             'description': self.description,
-            'quantity': self.quantity,
-            'unit_price': self.unit_price,
-            'total': self.total
+            'quantity': float(self.quantity) if self.quantity is not None else 0.0,
+            'unit_price': float(self.unit_price) if self.unit_price is not None else 0.0,
+            'total': float(self.total) if self.total is not None else 0.0
         }
 
 class Report(db.Model):
@@ -113,8 +121,8 @@ class Report(db.Model):
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
     
-    # Report data (stored as JSON)
-    data = db.Column(db.Text)  # JSON string containing report metrics
+    # Report data (native JSON type for PostgreSQL; falls back to Text on SQLite)
+    data = db.Column(db.JSON)  # JSON object containing report metrics
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -122,10 +130,10 @@ class Report(db.Model):
     user = db.relationship('User', backref='reports')
     
     def set_data(self, data_dict):
-        self.data = json.dumps(data_dict)
+        self.data = data_dict
     
     def get_data(self):
-        return json.loads(self.data) if self.data else {}
+        return self.data if self.data else {}
     
     def to_dict(self):
         return {
