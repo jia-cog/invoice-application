@@ -120,4 +120,4 @@
         - {{ origin }}
       {% endfor %}
       The wildcard (*) origin from development has been removed.
-      This is enforced via the production_config.py deployed by the backend role.
+      This is enforced via wsgi.py which patches Config.CORS_ORIGINS before app initialization.
