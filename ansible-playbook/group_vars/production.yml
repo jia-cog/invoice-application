@@ -39,9 +39,14 @@ nginx_server_name: "{{ frontend_domain }}"
 nginx_ssl_cert: "/etc/ssl/certs/{{ frontend_domain }}.pem"
 nginx_ssl_key: "/etc/ssl/private/{{ frontend_domain }}.key"
 nginx_ssl_enabled: true
+security_ssl_enabled: true
 
 # Firewall settings
 firewall_allowed_ports:
+  - "22/tcp"    # SSH
+  - "80/tcp"    # HTTP
+  - "443/tcp"   # HTTPS
+security_firewall_allowed_ports:
   - "22/tcp"    # SSH
   - "80/tcp"    # HTTP
   - "443/tcp"   # HTTPS

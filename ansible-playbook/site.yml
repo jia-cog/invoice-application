@@ -24,11 +24,11 @@
     - role: system-deps
       tags: [system, deps]
 
-    - role: database
-      tags: [database, db]
-
     - role: invoice-app-backend
       tags: [backend, app]
+
+    - role: database
+      tags: [database, db]
 
     - role: invoice-app-frontend
       tags: [frontend, app]

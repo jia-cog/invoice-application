@@ -3,6 +3,11 @@
 # Sets up the Python virtual environment, installs dependencies,
 # configures environment variables, and manages the systemd service.
 
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    system: true
+
 - name: Create application user
   ansible.builtin.user:
     name: "{{ app_user }}"
@@ -11,11 +16,6 @@
     shell: /usr/sbin/nologin
     home: "{{ app_base_dir }}"
     create_home: false
-
-- name: Create application group
-  ansible.builtin.group:
-    name: "{{ app_group }}"
-    system: true
 
 - name: Create application base directory
   ansible.builtin.file:
@@ -75,15 +75,6 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0600"
-  notify: Restart invoice backend
-
-- name: Deploy production CORS configuration overlay
-  ansible.builtin.template:
-    src: production_config.py.j2
-    dest: "{{ backend_dir }}/production_config.py"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: "0644"
   notify: Restart invoice backend
 
 - name: Deploy WSGI entry point for gunicorn
