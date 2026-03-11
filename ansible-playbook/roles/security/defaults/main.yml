@@ -1,0 +1,6 @@
+---
+security_ssl_enabled: true
+security_firewall_allowed_ports:
+  - "22/tcp"
+  - "80/tcp"
+  - "443/tcp"

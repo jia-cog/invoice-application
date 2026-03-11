@@ -1,0 +1,58 @@
+---
+# Production Environment Configuration for Invoice Application
+# ============================================================
+# IMPORTANT: Override sensitive values using ansible-vault or
+# pass them via -e on the command line. Do NOT commit real secrets.
+
+# Application settings
+app_name: invoice-application
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
+app_repo_url: https://github.com/jia-cog/invoice-application.git
+app_repo_branch: master
+
+# Backend settings
+backend_dir: "{{ app_base_dir }}/src/backend"
+backend_port: 5001
+backend_workers: 4
+backend_venv_dir: "{{ app_base_dir }}/.venv"
+backend_service_name: invoice-backend
+
+# Database settings
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+database_dir: "{{ backend_dir }}/instance"
+
+# JWT and Flask secrets
+# IMPORTANT: Override these with vault-encrypted values in production
+jwt_secret_key: "{{ vault_jwt_secret_key | default('CHANGE-ME-use-ansible-vault') }}"
+flask_secret_key: "{{ vault_flask_secret_key | default('CHANGE-ME-use-ansible-vault') }}"
+
+# Frontend settings
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+frontend_build_dir: "{{ frontend_dir }}/build"
+frontend_domain: "{{ inventory_hostname }}"
+react_app_api_url: "https://{{ frontend_domain }}/api"
+
+# Nginx settings
+nginx_server_name: "{{ frontend_domain }}"
+nginx_ssl_cert: "/etc/ssl/certs/{{ frontend_domain }}.pem"
+nginx_ssl_key: "/etc/ssl/private/{{ frontend_domain }}.key"
+nginx_ssl_enabled: true
+
+# Firewall settings
+firewall_allowed_ports:
+  - "22/tcp"    # SSH
+  - "80/tcp"    # HTTP
+  - "443/tcp"   # HTTPS
+
+# CORS settings - restrict to production frontend domain only
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"
+
+# Node.js version
+nodejs_version: "18"
+
+# First-time provisioning flag
+# Set to true only for initial deployment: -e "first_time_provision=true"
+first_time_provision: false

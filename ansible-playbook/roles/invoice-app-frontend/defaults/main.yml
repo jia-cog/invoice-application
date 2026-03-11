@@ -1,0 +1,2 @@
+---
+react_app_api_url: "https://{{ frontend_domain }}/api"

@@ -1,0 +1,52 @@
+---
+# Invoice App Frontend Role - React application build and deployment
+# Installs npm dependencies, sets the production API URL at build time,
+# builds the React app, and prepares static files for Nginx serving.
+
+- name: Install npm dependencies
+  community.general.npm:
+    path: "{{ frontend_dir }}"
+    state: present
+    production: true
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    HOME: "{{ app_base_dir }}"
+
+- name: Build React application for production
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    REACT_APP_API_URL: "{{ react_app_api_url }}"
+    NODE_ENV: production
+    HOME: "{{ app_base_dir }}"
+    CI: "true"
+  register: frontend_build
+  changed_when: true
+  notify: Reload nginx
+
+- name: Ensure build directory has correct ownership
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+    recurse: true
+
+- name: Verify build output exists
+  ansible.builtin.stat:
+    path: "{{ frontend_build_dir }}/index.html"
+  register: build_index
+
+- name: Fail if build output is missing
+  ansible.builtin.fail:
+    msg: "Frontend build failed - index.html not found in {{ frontend_build_dir }}"
+  when: not build_index.stat.exists
+
+- name: Display build result
+  ansible.builtin.debug:
+    msg: "Frontend built successfully. Static files at {{ frontend_build_dir }}"
