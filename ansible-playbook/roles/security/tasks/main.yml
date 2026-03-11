@@ -1,0 +1,123 @@
+---
+# Security Role - Firewall, SSL, CORS, and secret management
+# Configures UFW firewall, SSL certificates, and production CORS settings.
+
+# --- Firewall Configuration ---
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Set UFW default incoming policy to deny
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: Set UFW default outgoing policy to allow
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+
+- name: Allow configured firewall ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.split('/')[0] }}"
+    proto: "{{ item.split('/')[1] }}"
+  loop: "{{ security_firewall_allowed_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+    logging: "on"
+
+# --- SSL Certificate Setup ---
+
+- name: Install certbot for Let's Encrypt
+  ansible.builtin.apt:
+    name:
+      - certbot
+      - python3-certbot-nginx
+    state: present
+  when: security_ssl_enabled
+
+- name: Create certbot webroot directory
+  ansible.builtin.file:
+    path: /var/www/certbot
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: security_ssl_enabled
+
+- name: Check if SSL certificate already exists
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem"
+  register: security_ssl_cert_check
+  when: security_ssl_enabled
+
+- name: Generate self-signed certificate for initial setup
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes -days 365 -newkey rsa:2048
+      -keyout {{ nginx_ssl_key }}
+      -out {{ nginx_ssl_cert }}
+      -subj "/C=US/ST=State/L=City/O=Invoice App/CN={{ frontend_domain }}"
+  args:
+    creates: "{{ nginx_ssl_cert }}"
+  when:
+    - security_ssl_enabled
+    - not security_ssl_cert_check.stat.exists | default(true)
+  notify: Restart nginx
+
+- name: Display SSL setup instructions
+  ansible.builtin.debug:
+    msg: |
+      Self-signed certificate generated for initial setup.
+      To obtain a proper Let's Encrypt certificate, run:
+        certbot --nginx -d {{ frontend_domain }} --non-interactive --agree-tos -m admin@{{ frontend_domain }}
+      Then update nginx_ssl_cert and nginx_ssl_key in group_vars/production.yml
+      to point to the Let's Encrypt paths.
+  when:
+    - security_ssl_enabled
+    - not security_ssl_cert_check.stat.exists | default(true)
+
+- name: Set up certbot auto-renewal cron
+  ansible.builtin.cron:
+    name: "Certbot auto-renewal"
+    minute: "0"
+    hour: "3"
+    day: "*"
+    month: "*"
+    weekday: "1"
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+  when: security_ssl_enabled
+
+# --- Secret Management ---
+
+- name: Ensure backend .env file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+
+- name: Ensure database file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ database_dir }}/invoice_app.db"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: database_dir is defined
+
+# --- CORS Security ---
+
+- name: Verify CORS is configured for production
+  ansible.builtin.debug:
+    msg: |
+      CORS is configured to allow only these origins:
+      {% for origin in cors_allowed_origins %}
+        - {{ origin }}
+      {% endfor %}
+      The wildcard (*) origin from development has been removed.
+      This is enforced via wsgi.py which patches Config.CORS_ORIGINS before app initialization.

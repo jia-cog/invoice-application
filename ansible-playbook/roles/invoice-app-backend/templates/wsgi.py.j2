@@ -1,0 +1,32 @@
+"""
+WSGI entry point for the Invoice Application.
+Managed by Ansible - Do not edit manually.
+
+Used by gunicorn to serve the Flask app in production.
+Usage: gunicorn --bind 0.0.0.0:{{ backend_port }} wsgi:app
+"""
+
+import sys
+import os
+
+# Ensure the backend directory is in the Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Load environment variables from .env file BEFORE importing the app,
+# so that config.py reads production values for DATABASE_URL, JWT_SECRET_KEY,
+# SECRET_KEY from the environment instead of using insecure defaults.
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
+# Patch the CORS_ORIGINS in config before create_app() initializes Flask-CORS.
+# The default config.py allows wildcard '*' origins which is insecure for production.
+import config as _config
+_config.Config.CORS_ORIGINS = [
+{% for origin in cors_allowed_origins %}
+    '{{ origin }}',
+{% endfor %}
+]
+
+from app import create_app
+
+app = create_app()
