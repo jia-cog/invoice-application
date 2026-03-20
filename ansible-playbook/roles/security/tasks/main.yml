@@ -1,0 +1,116 @@
+---
+# Security Role
+# Configures firewall, SSL certificates, CORS restrictions, and secret management.
+
+# ---------------------------------------------------------------------------
+# Firewall (UFW)
+# ---------------------------------------------------------------------------
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Set UFW default policy - deny incoming
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: Set UFW default policy - allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+
+- name: Allow configured firewall ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port | string }}"
+    proto: "{{ item.proto }}"
+  loop: "{{ firewall_allowed_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# ---------------------------------------------------------------------------
+# SSL Certificate
+# ---------------------------------------------------------------------------
+- name: Create SSL directory
+  ansible.builtin.file:
+    path: "/etc/ssl/private"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Generate self-signed SSL certificate (for testing)
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes
+      -days 365
+      -newkey rsa:2048
+      -keyout {{ ssl_certificate_key }}
+      -out {{ ssl_certificate }}
+      -subj "/C=US/ST=State/L=City/O=Organization/CN={{ frontend_domain }}"
+    creates: "{{ ssl_certificate }}"
+  when: ssl_self_signed | default(true)
+  notify: Reload nginx
+
+# ---------------------------------------------------------------------------
+# CORS Hardening
+# ---------------------------------------------------------------------------
+# The backend config.py reads CORS_ORIGINS from environment.
+# The backend .env file (deployed by the backend role) already sets
+# CORS_ORIGINS to the production frontend domain only.
+# This task verifies the configuration is correct.
+- name: Verify CORS configuration does not contain wildcard
+  ansible.builtin.command:
+    cmd: grep -c "CORS_ORIGINS=.*\*" {{ backend_dir }}/.env
+  register: cors_wildcard_check
+  changed_when: false
+  failed_when: cors_wildcard_check.rc == 0
+  ignore_errors: true
+
+- name: Warn if CORS wildcard detected
+  ansible.builtin.debug:
+    msg: >
+      WARNING: CORS configuration contains a wildcard origin (*).
+      This is a security risk in production. The backend .env should
+      restrict CORS_ORIGINS to: {{ cors_allowed_origins | join(', ') }}
+  when: cors_wildcard_check.rc == 0
+
+# ---------------------------------------------------------------------------
+# Secret management
+# ---------------------------------------------------------------------------
+- name: Ensure backend .env file has restricted permissions
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/.env"
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0600"
+
+- name: Ensure database file has restricted permissions
+  ansible.builtin.file:
+    path: "{{ database_file }}"
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0640"
+  when: database_file is defined
+
+# ---------------------------------------------------------------------------
+# System hardening
+# ---------------------------------------------------------------------------
+- name: Disable root SSH login
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin no"
+    state: present
+  notify: Restart sshd
+
+- name: Disable password authentication for SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication no"
+    state: present
+  notify: Restart sshd

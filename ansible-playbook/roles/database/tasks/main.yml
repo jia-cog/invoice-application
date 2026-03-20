@@ -1,0 +1,98 @@
+---
+# Database Role
+# Handles SQLite database setup with safety guards against destructive re-initialization.
+#
+# CRITICAL: The app's init_db.py calls db.drop_all() which destroys all data.
+# We use a marker file to ensure initialization only runs on first deployment.
+
+- name: Create instance directory for SQLite database
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/instance"
+    state: directory
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0755"
+
+- name: Create log directory
+  ansible.builtin.file:
+    path: /var/log/invoice-app
+    state: directory
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0755"
+
+- name: Check if database already exists
+  ansible.builtin.stat:
+    path: "{{ database_file }}"
+  register: db_file
+
+- name: Check if database initialization marker exists
+  ansible.builtin.stat:
+    path: "{{ backend_dir }}/instance/.db_initialized"
+  register: db_marker
+
+- name: Display database status
+  ansible.builtin.debug:
+    msg: >
+      Database file exists: {{ db_file.stat.exists | default(false) }},
+      Init marker exists: {{ db_marker.stat.exists | default(false) }},
+      First-time deploy flag: {{ first_time_deploy }}
+
+# Safety guard: Only initialize database if BOTH conditions are met:
+# 1. The database file does not exist OR the first_time_deploy flag is explicitly set
+# 2. The initialization marker does not exist (prevents accidental re-init)
+- name: Initialize database schema (first-time only)
+  ansible.builtin.command:
+    cmd: >
+      {{ backend_venv_dir }}/bin/python -c "
+      import sys
+      sys.path.insert(0, '{{ backend_dir }}')
+      from app import create_app
+      from models import db
+      app = create_app()
+      with app.app_context():
+          db.create_all()
+          print('Database tables created successfully')
+      "
+  args:
+    chdir: "{{ backend_dir }}"
+  become: true
+  become_user: "{{ backend_user }}"
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  when: >
+    (not db_file.stat.exists or (first_time_deploy | bool)) and
+    not db_marker.stat.exists
+  changed_when: db_init_result.rc == 0
+  register: db_init_result
+
+- name: Create database initialization marker
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/instance/.db_initialized"
+    state: touch
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0644"
+  when: db_init_result is changed
+
+- name: Warn if skipping database initialization
+  ansible.builtin.debug:
+    msg: >
+      SKIPPED database initialization - database already exists and
+      first_time_deploy is not set. To force re-initialization, run with
+      -e "first_time_deploy=true" and REMOVE the marker file at
+      {{ backend_dir }}/instance/.db_initialized
+      WARNING: This will DESTROY all existing data!
+  when: >
+    db_file.stat.exists and
+    not (first_time_deploy | bool)
+
+- name: Set database file permissions
+  ansible.builtin.file:
+    path: "{{ database_file }}"
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0640"
+  when: db_file.stat.exists or (db_init_result is defined and db_init_result is changed)

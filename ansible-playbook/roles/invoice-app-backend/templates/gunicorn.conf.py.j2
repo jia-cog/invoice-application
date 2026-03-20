@@ -1,0 +1,19 @@
+# Gunicorn configuration for Invoice Application
+# Managed by Ansible - do not edit manually
+
+bind = "{{ gunicorn_bind }}"
+workers = {{ gunicorn_workers }}
+timeout = {{ gunicorn_timeout }}
+
+# Logging
+accesslog = "/var/log/invoice-app/gunicorn-access.log"
+errorlog = "/var/log/invoice-app/gunicorn-error.log"
+loglevel = "info"
+
+# Process naming
+proc_name = "invoice-backend"
+
+# Security
+limit_request_line = 4094
+limit_request_fields = 100
+limit_request_field_size = 8190

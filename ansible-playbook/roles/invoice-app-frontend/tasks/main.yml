@@ -1,0 +1,49 @@
+---
+# Invoice App Frontend Role
+# Installs npm dependencies and builds the React production bundle.
+# REACT_APP_API_URL is set at build time so Nginx can proxy API requests.
+
+- name: Install npm dependencies
+  community.general.npm:
+    path: "{{ frontend_dir }}"
+    state: present
+    production: false
+  become: true
+  become_user: "{{ backend_user }}"
+  environment:
+    HOME: "{{ app_base_dir }}"
+
+- name: Check if frontend build exists
+  ansible.builtin.stat:
+    path: "{{ frontend_build_dir }}/index.html"
+  register: frontend_build
+
+- name: Check if package.json has changed
+  ansible.builtin.stat:
+    path: "{{ frontend_dir }}/package.json"
+  register: package_json
+
+- name: Build React production bundle
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ backend_user }}"
+  environment:
+    REACT_APP_API_URL: "{{ api_base_url }}"
+    HOME: "{{ app_base_dir }}"
+    CI: "true"
+    NODE_OPTIONS: "--max-old-space-size=1024"
+  register: frontend_build_result
+  changed_when: true
+  notify: Reload nginx
+
+- name: Set frontend build directory permissions
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    state: directory
+    owner: "{{ backend_user }}"
+    group: "{{ backend_group }}"
+    mode: "0755"
+    recurse: true
+  when: frontend_build_result is changed

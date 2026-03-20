@@ -1,0 +1,14 @@
+---
+# Defaults are defined in group_vars/production.yml
+# These serve as fallbacks only
+nodejs_major_version: "18"
+system_packages:
+  - python3
+  - python3-pip
+  - python3-venv
+  - nginx
+  - git
+  - curl
+  - ufw
+  - openssl
+  - sqlite3
