@@ -1,0 +1,3 @@
+---
+# Safety default: never re-initialize the database unless explicitly requested
+first_time_deploy: false

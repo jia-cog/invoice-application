@@ -1,0 +1,5 @@
+---
+# Defaults are defined in group_vars/production.yml
+backend_port: 5001
+gunicorn_workers: 3
+gunicorn_timeout: 120

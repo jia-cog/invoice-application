@@ -1,0 +1,8 @@
+---
+# Defaults are defined in group_vars/production.yml
+ssl_self_signed: true
+
+firewall_allowed_ports:
+  - { port: 22, proto: tcp }
+  - { port: 80, proto: tcp }
+  - { port: 443, proto: tcp }

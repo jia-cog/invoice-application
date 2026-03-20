@@ -1,0 +1,105 @@
+---
+# =============================================================================
+# Invoice Application - Production Environment Configuration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Application paths
+# -----------------------------------------------------------------------------
+app_base_dir: /opt/invoice-application
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_version: master
+
+# Backend paths
+backend_dir: "{{ app_base_dir }}/src/backend"
+backend_venv_dir: "{{ backend_dir }}/.venv"
+
+# Frontend paths
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+frontend_build_dir: "{{ frontend_dir }}/build"
+
+# -----------------------------------------------------------------------------
+# Backend configuration
+# -----------------------------------------------------------------------------
+backend_port: 5001
+backend_user: invoice-app
+backend_group: invoice-app
+
+# Gunicorn settings
+gunicorn_workers: 3
+gunicorn_bind: "127.0.0.1:{{ backend_port }}"
+gunicorn_timeout: 120
+
+# Database configuration (SQLite)
+# The path is relative to the backend directory as Flask expects
+database_url: "sqlite:///instance/invoice_app.db"
+database_file: "{{ backend_dir }}/instance/invoice_app.db"
+
+# JWT configuration
+# IMPORTANT: Override these with vault-encrypted values in production!
+# Use: ansible-vault encrypt_string 'your-secret' --name 'jwt_secret_key'
+jwt_secret_key: "{{ vault_jwt_secret_key | default('CHANGE-ME-use-ansible-vault-in-production') }}"
+flask_secret_key: "{{ vault_flask_secret_key | default('CHANGE-ME-use-ansible-vault-in-production') }}"
+
+# JWT token expiration (hours)
+jwt_token_expiry_hours: 24
+
+# -----------------------------------------------------------------------------
+# Frontend configuration
+# -----------------------------------------------------------------------------
+# The production API URL that the React app will use (set at build time)
+api_base_url: "https://{{ frontend_domain }}/api"
+
+# -----------------------------------------------------------------------------
+# Domain / networking
+# -----------------------------------------------------------------------------
+frontend_domain: "invoice.example.com"
+ssl_enabled: true
+
+# SSL certificate paths (update for your certificate provider)
+ssl_certificate: "/etc/ssl/certs/{{ frontend_domain }}.crt"
+ssl_certificate_key: "/etc/ssl/private/{{ frontend_domain }}.key"
+
+# Set to true to generate a self-signed certificate (for testing only)
+ssl_self_signed: true
+
+# -----------------------------------------------------------------------------
+# Firewall
+# -----------------------------------------------------------------------------
+firewall_allowed_ports:
+  - { port: 22, proto: tcp }    # SSH
+  - { port: 80, proto: tcp }    # HTTP (redirects to HTTPS)
+  - { port: 443, proto: tcp }   # HTTPS
+
+# -----------------------------------------------------------------------------
+# Database initialization safety
+# -----------------------------------------------------------------------------
+# Set to true ONLY on first deployment to initialize the database schema.
+# On subsequent deploys, this must be false to prevent data loss.
+# Override with: -e "first_time_deploy=true"
+first_time_deploy: false
+
+# -----------------------------------------------------------------------------
+# CORS configuration
+# -----------------------------------------------------------------------------
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"
+
+# -----------------------------------------------------------------------------
+# Node.js version
+# -----------------------------------------------------------------------------
+nodejs_major_version: "18"
+
+# -----------------------------------------------------------------------------
+# System packages
+# -----------------------------------------------------------------------------
+system_packages:
+  - python3
+  - python3-pip
+  - python3-venv
+  - nginx
+  - git
+  - curl
+  - ufw
+  - openssl
+  - sqlite3
