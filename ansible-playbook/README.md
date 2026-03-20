@@ -39,8 +39,8 @@ ansible-playbook/
 │   └── production.yml                # Production environment config
 └── roles/
     ├── system-deps/                  # Python3, Node.js, Nginx, system packages
-    ├── database/                     # SQLite setup with safe initialization
     ├── invoice-app-backend/          # Flask + Gunicorn + systemd service
+    ├── database/                     # SQLite setup with safe initialization
     ├── invoice-app-frontend/         # React build + static file serving
     ├── webserver/                    # Nginx reverse proxy configuration
     └── security/                     # Firewall, SSL, CORS, secrets
