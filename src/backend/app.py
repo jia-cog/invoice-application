@@ -8,6 +8,9 @@ from routes.invoices import invoices_bp
 from routes.reports import reports_bp
 
 def create_app():
+    # Validate required environment variables before proceeding
+    Config.validate()
+
     app = Flask(__name__)
     app.config.from_object(Config)
     
