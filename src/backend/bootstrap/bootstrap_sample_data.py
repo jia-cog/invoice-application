@@ -2,6 +2,10 @@
 """
 Bootstrap a sample user and print a JWT for local development.
 
+*** WARNING: This script is intended for LOCAL DEVELOPMENT ONLY. ***
+*** It creates a user with hardcoded credentials and must NEVER ***
+*** be executed against a production environment.                ***
+
 - Username: testuser@email.com
 - Email:    testuser@email.com
 - Password: topsecretpassword
@@ -90,7 +94,21 @@ def get_profile(base_url: str, token: str) -> tuple[Optional[int], dict]:
     return _http_request("GET", url, headers=headers)
 
 
+def _check_environment() -> None:
+    """Prevent execution in production environments."""
+    env = os.environ.get("ENV", os.environ.get("FLASK_ENV", "")).lower()
+    if env == "production":
+        print(
+            "ERROR: This bootstrap script must not be run in a production environment.\n"
+            "       The ENV or FLASK_ENV environment variable is set to 'production'.\n"
+            "       This script creates users with hardcoded credentials and is intended\n"
+            "       for local development only."
+        )
+        sys.exit(1)
+
+
 def main() -> int:
+    _check_environment()
     base_url = os.environ.get("API_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
     print(f"Using API base URL: {base_url}")

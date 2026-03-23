@@ -18,6 +18,30 @@ A full-stack invoicing application built with React.js frontend and Flask backen
 
 ## Setup Instructions
 
+### Required Environment Variables
+
+The application requires the following environment variables to be set **before** it will start. This prevents accidental use of weak, hardcoded secrets in production.
+
+| Variable | Purpose | Required |
+|---|---|---|
+| `JWT_SECRET_KEY` | Signing key for JWT access tokens | **Yes** |
+| `SECRET_KEY` | Flask session signing key | **Yes** |
+
+**Generating secure values:**
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Set them in your shell before running the backend:
+
+```bash
+export JWT_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+export SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+```
+
+> **Note:** For production deployments, store these values in a secrets manager or CI/CD environment configuration — never commit them to source control.
+
 ### Backend Setup
 
 1. Create and activate virtual environment:
