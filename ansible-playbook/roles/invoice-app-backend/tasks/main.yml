@@ -54,15 +54,32 @@
   become: true
   become_user: "{{ app_user }}"
 
-# -- Environment configuration ------------------------------------------------
-- name: Deploy backend environment file
+# -- Production configuration -------------------------------------------------
+- name: Deploy production CORS configuration
   ansible.builtin.template:
-    src: backend-env.j2
-    dest: /etc/invoice-app/env
+    src: production_config.py.j2
+    dest: "{{ backend_dir }}/production_config.py"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0640"
   notify: Restart invoice-backend
+
+- name: Deploy production WSGI entry point
+  ansible.builtin.template:
+    src: wsgi.py.j2
+    dest: "{{ backend_dir }}/wsgi.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify: Restart invoice-backend
+
+- name: Create application log directory
+  ansible.builtin.file:
+    path: /var/log/invoice-app
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
 
 # -- Systemd service ----------------------------------------------------------
 - name: Deploy systemd service file

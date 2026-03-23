@@ -65,6 +65,7 @@
     -out {{ nginx_ssl_cert_path }}
     -subj "/C=US/ST=State/L=City/O=Organization/CN={{ frontend_domain }}"
   when: not ssl_cert_stat.stat.exists
+  register: ssl_cert_generated
   notify: Reload nginx
 
 - name: Set SSL certificate permissions
@@ -76,7 +77,7 @@
   loop:
     - { path: "{{ nginx_ssl_cert_path }}", mode: "0644" }
     - { path: "{{ nginx_ssl_key_path }}", mode: "0600" }
-  when: ssl_cert_stat.stat.exists or ssl_cert_generated is defined
+  when: ssl_cert_stat.stat.exists or (ssl_cert_generated is defined and ssl_cert_generated.changed)
 
 # -- Secrets directory ---------------------------------------------------------
 - name: Create secrets directory
@@ -91,16 +92,6 @@
   ansible.builtin.template:
     src: env_secrets.j2
     dest: /etc/invoice-app/env
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: "0640"
-  notify: Restart invoice-backend
-
-# -- Backend CORS configuration -----------------------------------------------
-- name: Deploy production CORS configuration
-  ansible.builtin.template:
-    src: production_config.py.j2
-    dest: "{{ backend_dir }}/production_config.py"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0640"
