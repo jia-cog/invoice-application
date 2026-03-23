@@ -1,0 +1,107 @@
+---
+# Security Role
+# Configures firewall, SSL, CORS restrictions, and secret management
+
+# -- Application user ---------------------------------------------------------
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    state: present
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    home: "{{ app_base_dir }}"
+    shell: /usr/sbin/nologin
+    system: yes
+    create_home: no
+    state: present
+
+# -- Firewall (UFW) -----------------------------------------------------------
+- name: Reset UFW to defaults
+  community.general.ufw:
+    state: reset
+  when: firewall_reset | default(false)
+
+- name: Set UFW default deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set UFW default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow required ports through firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.split('/')[0] }}"
+    proto: "{{ item.split('/')[1] }}"
+  loop: "{{ firewall_allowed_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# -- SSL Certificate ----------------------------------------------------------
+- name: Create SSL directory
+  ansible.builtin.file:
+    path: /etc/ssl/private
+    state: directory
+    mode: "0700"
+
+- name: Check if SSL certificate exists
+  ansible.builtin.stat:
+    path: "{{ nginx_ssl_cert_path }}"
+  register: ssl_cert_stat
+
+- name: Generate self-signed SSL certificate (for initial setup)
+  ansible.builtin.command: >
+    openssl req -x509 -nodes -days 365
+    -newkey rsa:2048
+    -keyout {{ nginx_ssl_key_path }}
+    -out {{ nginx_ssl_cert_path }}
+    -subj "/C=US/ST=State/L=City/O=Organization/CN={{ frontend_domain }}"
+  when: not ssl_cert_stat.stat.exists
+  notify: Reload nginx
+
+- name: Set SSL certificate permissions
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  loop:
+    - { path: "{{ nginx_ssl_cert_path }}", mode: "0644" }
+    - { path: "{{ nginx_ssl_key_path }}", mode: "0600" }
+  when: ssl_cert_stat.stat.exists or ssl_cert_generated is defined
+
+# -- Secrets directory ---------------------------------------------------------
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: /etc/invoice-app
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Deploy environment secrets file
+  ansible.builtin.template:
+    src: env_secrets.j2
+    dest: /etc/invoice-app/env
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify: Restart invoice-backend
+
+# -- Backend CORS configuration -----------------------------------------------
+- name: Deploy production CORS configuration
+  ansible.builtin.template:
+    src: production_config.py.j2
+    dest: "{{ backend_dir }}/production_config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify: Restart invoice-backend

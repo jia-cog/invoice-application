@@ -1,0 +1,8 @@
+# Invoice Application - Backend Environment Variables
+# Managed by Ansible - DO NOT EDIT MANUALLY
+
+DATABASE_URL={{ database_url }}
+JWT_SECRET_KEY={{ jwt_secret_key }}
+SECRET_KEY={{ flask_secret_key }}
+FLASK_ENV={{ flask_env }}
+CORS_ORIGINS={{ cors_allowed_origins | join(',') }}

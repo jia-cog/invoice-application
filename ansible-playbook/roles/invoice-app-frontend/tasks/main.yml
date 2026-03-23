@@ -1,0 +1,58 @@
+---
+# Invoice App Frontend Role
+# Builds the React application and prepares static files for Nginx serving
+
+- name: Check if node_modules exists
+  ansible.builtin.stat:
+    path: "{{ frontend_dir }}/node_modules"
+  register: node_modules_stat
+
+- name: Install npm dependencies
+  ansible.builtin.command: npm ci --production=false
+  args:
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when: not node_modules_stat.stat.exists
+  register: npm_install_result
+
+- name: Update npm dependencies (if node_modules exists)
+  ansible.builtin.command: npm install
+  args:
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when: node_modules_stat.stat.exists
+  register: npm_update_result
+  changed_when: "'added' in npm_update_result.stdout or 'updated' in npm_update_result.stdout"
+
+- name: Build React application for production
+  ansible.builtin.command: npm run build
+  args:
+    chdir: "{{ frontend_dir }}"
+  environment:
+    REACT_APP_API_URL: "{{ react_app_api_url }}"
+    NODE_ENV: production
+    CI: "true"
+  become: true
+  become_user: "{{ app_user }}"
+  register: build_result
+  notify: Reload nginx
+
+- name: Verify build directory exists
+  ansible.builtin.stat:
+    path: "{{ frontend_dir }}/build"
+  register: build_dir_stat
+
+- name: Fail if build directory not created
+  ansible.builtin.fail:
+    msg: "React build failed - build directory not found at {{ frontend_dir }}/build"
+  when: not build_dir_stat.stat.exists
+
+- name: Set correct ownership on build directory
+  ansible.builtin.file:
+    path: "{{ frontend_dir }}/build"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: yes
