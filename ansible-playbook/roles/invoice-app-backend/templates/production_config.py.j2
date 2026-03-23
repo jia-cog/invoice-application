@@ -1,0 +1,29 @@
+"""
+Production configuration override for the Invoice Application.
+Managed by Ansible - DO NOT EDIT MANUALLY.
+
+This module overrides the default config.py settings for production use.
+It restricts CORS origins and reads secrets from environment variables.
+"""
+import os
+from datetime import timedelta
+
+
+class ProductionConfig:
+    # Database configuration
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', '{{ database_url }}')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    # JWT configuration
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', '{{ jwt_secret_key }}')
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
+
+    # Flask configuration
+    SECRET_KEY = os.environ.get('SECRET_KEY', '{{ flask_secret_key }}')
+
+    # CORS - restricted to production frontend domain only (no wildcard)
+    CORS_ORIGINS = [
+{% for origin in cors_allowed_origins %}
+        '{{ origin }}',
+{% endfor %}
+    ]

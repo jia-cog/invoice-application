@@ -1,0 +1,52 @@
+---
+# =============================================================================
+# Invoice Application - Production Configuration
+# =============================================================================
+
+# -- Application paths --------------------------------------------------------
+app_base_dir: /opt/invoice-application
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_branch: master
+backend_dir: "{{ app_base_dir }}/src/backend"
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+venv_dir: "{{ app_base_dir }}/.venv"
+
+# -- Application user ---------------------------------------------------------
+app_user: invoice-app
+app_group: invoice-app
+
+# -- Backend (Flask) configuration --------------------------------------------
+backend_port: 5001
+flask_env: production
+
+# Database (SQLite)
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+database_file: "{{ backend_dir }}/instance/invoice_app.db"
+
+# Secrets - OVERRIDE THESE with ansible-vault or --extra-vars in production!
+# Generate secure values with: python3 -c "import secrets; print(secrets.token_hex(32))"
+jwt_secret_key: "CHANGE_ME_USE_ANSIBLE_VAULT"
+flask_secret_key: "CHANGE_ME_USE_ANSIBLE_VAULT"
+
+# -- Frontend (React) configuration -------------------------------------------
+frontend_domain: "{{ ansible_default_ipv4.address | default('localhost') }}"
+api_base_url: "https://{{ frontend_domain }}/api"
+react_app_api_url: "{{ api_base_url }}"
+
+# -- Nginx configuration -----------------------------------------------------
+nginx_ssl_enabled: true
+nginx_ssl_cert_path: /etc/ssl/certs/invoice-app.crt
+nginx_ssl_key_path: /etc/ssl/private/invoice-app.key
+
+# -- Firewall configuration ---------------------------------------------------
+firewall_allowed_ports:
+  - "22/tcp"    # SSH
+  - "80/tcp"    # HTTP (redirect to HTTPS)
+  - "443/tcp"   # HTTPS
+
+# -- CORS configuration -------------------------------------------------------
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"
+
+# -- Node.js version ----------------------------------------------------------
+nodejs_version: "18"

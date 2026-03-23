@@ -1,0 +1,101 @@
+---
+# Invoice App Backend Role
+# Deploys the Flask application with virtual environment, dependencies, and systemd service
+
+# -- Clone / update application repository ------------------------------------
+- name: Ensure application base directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Clone or update application repository
+  ansible.builtin.git:
+    repo: "{{ app_repo_url }}"
+    dest: "{{ app_base_dir }}"
+    version: "{{ app_repo_branch }}"
+    force: no
+    update: yes
+  become: true
+  become_user: "{{ app_user }}"
+  notify: Restart invoice-backend
+
+# -- Python virtual environment ------------------------------------------------
+- name: Create Python virtual environment
+  ansible.builtin.command: python3 -m venv {{ venv_dir }}
+  args:
+    creates: "{{ venv_dir }}/bin/activate"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Upgrade pip in virtual environment
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Install Python dependencies from requirements.txt
+  ansible.builtin.pip:
+    requirements: "{{ app_base_dir }}/requirements.txt"
+    virtualenv: "{{ venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  notify: Restart invoice-backend
+
+- name: Install gunicorn for production WSGI serving
+  ansible.builtin.pip:
+    name: gunicorn
+    state: present
+    virtualenv: "{{ venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+# -- Production configuration -------------------------------------------------
+- name: Deploy production CORS configuration
+  ansible.builtin.template:
+    src: production_config.py.j2
+    dest: "{{ backend_dir }}/production_config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify: Restart invoice-backend
+
+- name: Deploy production WSGI entry point
+  ansible.builtin.template:
+    src: wsgi.py.j2
+    dest: "{{ backend_dir }}/wsgi.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify: Restart invoice-backend
+
+- name: Create application log directory
+  ansible.builtin.file:
+    path: /var/log/invoice-app
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+# -- Systemd service ----------------------------------------------------------
+- name: Deploy systemd service file
+  ansible.builtin.template:
+    src: invoice-backend.service.j2
+    dest: /etc/systemd/system/invoice-backend.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart invoice-backend
+
+- name: Enable and start invoice-backend service
+  ansible.builtin.systemd:
+    name: invoice-backend
+    enabled: yes
+    state: started
+    daemon_reload: yes

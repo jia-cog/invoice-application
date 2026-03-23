@@ -1,0 +1,73 @@
+---
+# Database Role
+# Handles SQLite database setup with safety guards against destructive reinitialization
+
+- name: Ensure backend instance directory exists
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/instance"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Check if database file already exists
+  ansible.builtin.stat:
+    path: "{{ database_file }}"
+  register: db_file_stat
+
+- name: Deploy safe database initialization script
+  ansible.builtin.template:
+    src: safe_init_db.py.j2
+    dest: "{{ backend_dir }}/safe_init_db.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Initialize database (first-time only)
+  ansible.builtin.command: >
+    {{ venv_dir }}/bin/python {{ backend_dir }}/safe_init_db.py
+  args:
+    chdir: "{{ backend_dir }}"
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when: not db_file_stat.stat.exists
+  register: db_init_result
+
+- name: Display database initialization result
+  ansible.builtin.debug:
+    msg: "{{ db_init_result.stdout_lines | default(['Database already exists - skipping initialization']) }}"
+
+- name: Set database file permissions
+  ansible.builtin.file:
+    path: "{{ database_file }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: db_file_stat.stat.exists or (db_init_result is defined and db_init_result.changed)
+
+- name: Create database backup directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/backups"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Deploy database backup script
+  ansible.builtin.template:
+    src: backup_db.sh.j2
+    dest: "{{ app_base_dir }}/backups/backup_db.sh"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Create backup before deployment (if database exists)
+  ansible.builtin.command: "{{ app_base_dir }}/backups/backup_db.sh"
+  become: true
+  become_user: "{{ app_user }}"
+  when: db_file_stat.stat.exists
+  changed_when: false
