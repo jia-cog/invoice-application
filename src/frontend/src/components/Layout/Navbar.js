@@ -76,6 +76,18 @@ const Navbar = () => {
           <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
             Welcome, {user?.username}
           </span>
+          {user?.is_admin && (
+            <span style={{
+              background: '#3b82f6',
+              color: 'white',
+              padding: '0.125rem 0.5rem',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: '600'
+            }}>
+              Admin
+            </span>
+          )}
           <button
             onClick={handleLogout}
             className="btn btn-outline"
