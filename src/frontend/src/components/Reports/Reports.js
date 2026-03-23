@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { reportsAPI } from '../../utils/api';
+import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { 
   BarChart3, 
@@ -15,6 +16,7 @@ import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const Reports = () => {
+  const { isAdmin } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -63,7 +65,11 @@ const Reports = () => {
       setSelectedReport(response.data.report);
       fetchReports();
     } catch (error) {
-      toast.error('Failed to generate report');
+      if (error.response?.status === 403) {
+        toast.error('Admin privileges required to generate reports');
+      } else {
+        toast.error('Failed to generate report');
+      }
     } finally {
       setGenerating(false);
     }
@@ -106,8 +112,8 @@ const Reports = () => {
         gap: '2rem',
         marginBottom: '2rem'
       }}>
-        {/* Generate Report Form */}
-        <div className="card">
+        {/* Generate Report Form (Admin Only) */}
+        {isAdmin && <div className="card">
           <h3 style={{
             fontSize: '1.25rem',
             fontWeight: '600',
@@ -184,7 +190,7 @@ const Reports = () => {
               )}
             </button>
           </form>
-        </div>
+        </div>}
 
         {/* Recent Reports */}
         <div className="card">

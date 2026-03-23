@@ -33,6 +33,9 @@ api.interceptors.response.use(
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
+    if (error.response?.status === 403) {
+      console.warn('Admin privileges required');
+    }
     return Promise.reject(error);
   }
 );

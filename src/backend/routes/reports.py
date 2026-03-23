@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_
 from models import db, Invoice, Report, User
+from utils.decorators import admin_required
 import calendar
 
 reports_bp = Blueprint('reports', __name__)
@@ -22,7 +23,7 @@ def get_reports():
         return jsonify({'error': str(e)}), 500
 
 @reports_bp.route('/generate', methods=['POST'])
-@jwt_required()
+@admin_required
 def generate_report():
     try:
         user_id = int(get_jwt_identity())
