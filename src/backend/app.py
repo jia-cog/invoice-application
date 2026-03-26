@@ -6,6 +6,7 @@ from models import db
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
+from routes.exports import exports_bp
 
 def create_app():
     app = Flask(__name__)
@@ -20,6 +21,7 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(invoices_bp, url_prefix='/api/invoices')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
+    app.register_blueprint(exports_bp, url_prefix='/api/invoices')
     
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])

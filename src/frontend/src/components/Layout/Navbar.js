@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, FileText, BarChart3, Home } from 'lucide-react';
+import { LogOut, FileText, BarChart3, Home, Download } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -68,6 +68,14 @@ const Navbar = () => {
             >
               <BarChart3 size={16} />
               Reports
+            </Link>
+            <Link
+              to="/export"
+              className={`btn ${isActive('/export') ? 'btn-primary' : 'btn-outline'}`}
+              style={{ textDecoration: 'none' }}
+            >
+              <Download size={16} />
+              Monthly Export
             </Link>
           </div>
         </div>

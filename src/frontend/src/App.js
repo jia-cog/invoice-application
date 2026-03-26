@@ -16,6 +16,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import InvoiceList from './components/Invoices/InvoiceList';
 import InvoiceForm from './components/Invoices/InvoiceForm';
 import Reports from './components/Reports/Reports';
+import InvoiceExport from './components/Exports/InvoiceExport';
 
 function App() {
   return (
@@ -67,6 +68,13 @@ function App() {
               <ProtectedRoute>
                 <Navbar />
                 <Reports />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/export" element={
+              <ProtectedRoute>
+                <Navbar />
+                <InvoiceExport />
               </ProtectedRoute>
             } />
             
