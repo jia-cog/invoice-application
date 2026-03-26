@@ -59,6 +59,8 @@ export const reportsAPI = {
   generate: (reportData) => api.post('/reports/generate', reportData),
   getDashboard: () => api.get('/reports/dashboard'),
   delete: (id) => api.delete(`/reports/${id}`),
+  getUsageAnalytics: (days = 60) => api.get(`/reports/usage-analytics?days=${days}`),
+  getQualityMetrics: (days = 60) => api.get(`/reports/invoice-quality?days=${days}`),
 };
 
 export default api;

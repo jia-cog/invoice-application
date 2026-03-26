@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_
-from models import db, Invoice, Report, User
+from models import db, Invoice, Report, User, RequestLog
 import calendar
 
 reports_bp = Blueprint('reports', __name__)
@@ -179,6 +179,162 @@ def get_dashboard_data():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@reports_bp.route('/usage-analytics', methods=['GET'])
+@jwt_required()
+def get_usage_analytics():
+    try:
+        days = request.args.get('days', 60, type=int)
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+
+        # Aggregate request logs by endpoint
+        endpoint_stats = db.session.query(
+            RequestLog.endpoint,
+            RequestLog.method,
+            func.count(RequestLog.id).label('hit_count')
+        ).filter(
+            RequestLog.timestamp >= start_date
+        ).group_by(
+            RequestLog.endpoint, RequestLog.method
+        ).order_by(
+            func.count(RequestLog.id).desc()
+        ).all()
+
+        # Daily trend data
+        daily_trends = db.session.query(
+            func.date(RequestLog.timestamp).label('day'),
+            func.count(RequestLog.id).label('hit_count')
+        ).filter(
+            RequestLog.timestamp >= start_date
+        ).group_by(
+            func.date(RequestLog.timestamp)
+        ).order_by(
+            func.date(RequestLog.timestamp)
+        ).all()
+
+        # Status code distribution
+        status_distribution = db.session.query(
+            RequestLog.status_code,
+            func.count(RequestLog.id).label('count')
+        ).filter(
+            RequestLog.timestamp >= start_date
+        ).group_by(
+            RequestLog.status_code
+        ).all()
+
+        return jsonify({
+            'endpoint_stats': [
+                {'endpoint': ep, 'method': m, 'hit_count': c}
+                for ep, m, c in endpoint_stats
+            ],
+            'daily_trends': [
+                {'date': str(day), 'hit_count': c}
+                for day, c in daily_trends
+            ],
+            'status_distribution': [
+                {'status_code': sc, 'count': c}
+                for sc, c in status_distribution
+            ],
+            'period': {
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'days': days
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@reports_bp.route('/invoice-quality', methods=['GET'])
+@jwt_required()
+def get_quality_metrics():
+    try:
+        user_id = int(get_jwt_identity())
+        days = request.args.get('days', 60, type=int)
+        end_date = datetime.utcnow()
+        start_date_dt = end_date - timedelta(days=days)
+        start_date_d = start_date_dt.date()
+
+        # All invoices for this user in the period
+        invoices = Invoice.query.filter(
+            and_(
+                Invoice.user_id == user_id,
+                Invoice.created_at >= start_date_dt
+            )
+        ).all()
+
+        total = len(invoices)
+
+        # Overdue rate
+        overdue_count = sum(1 for inv in invoices if inv.status == 'overdue')
+        overdue_rate = round((overdue_count / total * 100), 2) if total > 0 else 0
+
+        # Draft-stuck rate: invoices still in draft status
+        draft_count = sum(1 for inv in invoices if inv.status == 'draft')
+        draft_stuck_rate = round((draft_count / total * 100), 2) if total > 0 else 0
+
+        # Missing field rates
+        missing_email = sum(1 for inv in invoices if not inv.customer_email)
+        missing_address = sum(1 for inv in invoices if not inv.customer_address)
+        missing_notes = sum(1 for inv in invoices if not inv.notes)
+        missing_email_rate = round((missing_email / total * 100), 2) if total > 0 else 0
+        missing_address_rate = round((missing_address / total * 100), 2) if total > 0 else 0
+        missing_notes_rate = round((missing_notes / total * 100), 2) if total > 0 else 0
+
+        # Draft-to-paid conversion rate
+        paid_count = sum(1 for inv in invoices if inv.status == 'paid')
+        conversion_rate = round((paid_count / total * 100), 2) if total > 0 else 0
+
+        # Invoice generation trends (daily)
+        daily_generation = db.session.query(
+            func.date(Invoice.created_at).label('day'),
+            func.count(Invoice.id).label('count')
+        ).filter(
+            and_(
+                Invoice.user_id == user_id,
+                Invoice.created_at >= start_date_dt
+            )
+        ).group_by(
+            func.date(Invoice.created_at)
+        ).order_by(
+            func.date(Invoice.created_at)
+        ).all()
+
+        # Status breakdown
+        status_breakdown = {
+            'draft': draft_count,
+            'sent': sum(1 for inv in invoices if inv.status == 'sent'),
+            'paid': paid_count,
+            'overdue': overdue_count
+        }
+
+        return jsonify({
+            'total_invoices': total,
+            'overdue_rate': overdue_rate,
+            'draft_stuck_rate': draft_stuck_rate,
+            'conversion_rate': conversion_rate,
+            'missing_fields': {
+                'email_rate': missing_email_rate,
+                'address_rate': missing_address_rate,
+                'notes_rate': missing_notes_rate
+            },
+            'status_breakdown': status_breakdown,
+            'daily_generation': [
+                {'date': str(day), 'count': c}
+                for day, c in daily_generation
+            ],
+            'period': {
+                'start_date': start_date_d.isoformat(),
+                'end_date': end_date.date().isoformat(),
+                'days': days
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @reports_bp.route('/<int:report_id>', methods=['DELETE'])
 @jwt_required()

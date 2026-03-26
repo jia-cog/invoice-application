@@ -9,16 +9,19 @@ import {
   TrendingUp,
   DollarSign,
   FileText,
-  Users
+  Users,
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [qualityMetrics, setQualityMetrics] = useState(null);
   const [reportForm, setReportForm] = useState({
     report_type: 'monthly',
     start_date: '',
@@ -27,6 +30,7 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReports();
+    fetchQualityMetrics();
     setDefaultDates();
   }, []);
 
@@ -40,6 +44,15 @@ const Reports = () => {
       start_date: format(firstDayOfMonth, 'yyyy-MM-dd'),
       end_date: format(lastDayOfMonth, 'yyyy-MM-dd')
     }));
+  };
+
+  const fetchQualityMetrics = async () => {
+    try {
+      const response = await reportsAPI.getQualityMetrics(60);
+      setQualityMetrics(response.data);
+    } catch (error) {
+      // Quality metrics are supplementary; don't block on failure
+    }
   };
 
   const fetchReports = async () => {
@@ -453,6 +466,171 @@ const Reports = () => {
                 </div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* Invoice Quality Metrics */}
+      {qualityMetrics && (
+        <div style={{ marginTop: '2rem' }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: '600',
+            color: '#1e293b',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <AlertTriangle size={24} />
+            Invoice Quality Metrics (Last {qualityMetrics.period?.days || 60} Days)
+          </h2>
+
+          {/* Quality Rate Cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div className="card" style={{ borderLeft: '4px solid #ef4444' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                Overdue Rate
+              </p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#ef4444' }}>
+                {qualityMetrics.overdue_rate}%
+              </p>
+            </div>
+
+            <div className="card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                Draft-Stuck Rate
+              </p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#f59e0b' }}>
+                {qualityMetrics.draft_stuck_rate}%
+              </p>
+            </div>
+
+            <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                Draft-to-Paid Conversion
+              </p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#10b981' }}>
+                {qualityMetrics.conversion_rate}%
+              </p>
+            </div>
+
+            <div className="card" style={{ borderLeft: '4px solid #3b82f6' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
+                Total Invoices
+              </p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#3b82f6' }}>
+                {qualityMetrics.total_invoices}
+              </p>
+            </div>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+            gap: '2rem',
+            marginBottom: '2rem'
+          }}>
+            {/* Missing Fields Breakdown */}
+            {qualityMetrics.missing_fields && (
+              <div className="card">
+                <h4 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '1rem'
+                }}>
+                  Missing Field Rates
+                </h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={[
+                    { field: 'Email', rate: qualityMetrics.missing_fields.email_rate },
+                    { field: 'Address', rate: qualityMetrics.missing_fields.address_rate },
+                    { field: 'Notes', rate: qualityMetrics.missing_fields.notes_rate }
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="field" />
+                    <YAxis unit="%" />
+                    <Tooltip formatter={(value) => [`${value}%`, 'Missing Rate']} />
+                    <Bar dataKey="rate" fill="#f59e0b" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Invoice Generation Trends */}
+            {qualityMetrics.daily_generation && qualityMetrics.daily_generation.length > 0 && (
+              <div className="card">
+                <h4 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '1rem'
+                }}>
+                  Invoice Generation Trends
+                </h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={qualityMetrics.daily_generation}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`${value} invoices`, 'Created']} />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Status Breakdown */}
+          {qualityMetrics.status_breakdown && (
+            <div className="card">
+              <h4 style={{
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: '#1e293b',
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <CheckCircle size={18} />
+                Status Breakdown
+              </h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={Object.entries(qualityMetrics.status_breakdown).map(([key, value]) => ({
+                      name: key.charAt(0).toUpperCase() + key.slice(1),
+                      value
+                    }))}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {Object.entries(qualityMetrics.status_breakdown).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       )}
