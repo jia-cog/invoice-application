@@ -19,7 +19,6 @@ from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token
 from models import db, User, Invoice, InvoiceItem
 from routes.reports import reports_bp
-from config import Config
 
 
 class TestReportGeneration(unittest.TestCase):
