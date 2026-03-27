@@ -1,8 +1,8 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, get_jwt_identity, verify_jwt_in_request
 from config import Config
-from models import db
+from models import db, RequestLog
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
@@ -51,6 +51,33 @@ def create_app():
         print(f"JWT Error: Missing token. Error: {error}")
         return jsonify({'error': 'Authorization token is required'}), 401
     
+    # Request logging middleware
+    @app.after_request
+    def log_request(response):
+        if request.path.startswith('/api/'):
+            user_id = None
+            try:
+                verify_jwt_in_request(optional=True)
+                identity = get_jwt_identity()
+                if identity:
+                    user_id = int(identity)
+            except Exception:
+                pass
+
+            log_entry = RequestLog(
+                endpoint=request.path,
+                method=request.method,
+                user_id=user_id,
+                status_code=response.status_code
+            )
+            db.session.add(log_entry)
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+        return response
+
     # Create tables
     with app.app_context():
         db.create_all()

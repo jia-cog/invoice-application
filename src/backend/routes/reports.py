@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_
-from models import db, Invoice, Report, User
+from models import db, Invoice, Report, User, RequestLog
 import calendar
 
 reports_bp = Blueprint('reports', __name__)
@@ -177,6 +177,177 @@ def get_dashboard_data():
         
         return jsonify(dashboard_data), 200
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@reports_bp.route('/usage-analytics', methods=['GET'])
+@jwt_required()
+def get_usage_analytics():
+    try:
+        days = request.args.get('days', 60, type=int)
+        start_date = datetime.utcnow() - timedelta(days=days)
+
+        # Aggregate request logs by endpoint
+        endpoint_stats = db.session.query(
+            RequestLog.endpoint,
+            RequestLog.method,
+            func.count(RequestLog.id).label('hit_count'),
+            func.avg(RequestLog.status_code).label('avg_status')
+        ).filter(
+            RequestLog.timestamp >= start_date
+        ).group_by(
+            RequestLog.endpoint, RequestLog.method
+        ).order_by(
+            func.count(RequestLog.id).desc()
+        ).all()
+
+        # Daily trend data
+        daily_trends = db.session.query(
+            func.date(RequestLog.timestamp).label('day'),
+            func.count(RequestLog.id).label('hit_count')
+        ).filter(
+            RequestLog.timestamp >= start_date
+        ).group_by(
+            func.date(RequestLog.timestamp)
+        ).order_by(
+            func.date(RequestLog.timestamp)
+        ).all()
+
+        # Error rate (4xx and 5xx responses)
+        total_requests = db.session.query(
+            func.count(RequestLog.id)
+        ).filter(
+            RequestLog.timestamp >= start_date
+        ).scalar() or 0
+
+        error_requests = db.session.query(
+            func.count(RequestLog.id)
+        ).filter(
+            and_(
+                RequestLog.timestamp >= start_date,
+                RequestLog.status_code >= 400
+            )
+        ).scalar() or 0
+
+        return jsonify({
+            'endpoint_stats': [{
+                'endpoint': row.endpoint,
+                'method': row.method,
+                'hit_count': row.hit_count,
+                'avg_status': round(float(row.avg_status), 1) if row.avg_status else 0
+            } for row in endpoint_stats],
+            'daily_trends': [{
+                'date': str(row.day),
+                'hit_count': row.hit_count
+            } for row in daily_trends],
+            'summary': {
+                'total_requests': total_requests,
+                'error_requests': error_requests,
+                'error_rate': round(error_requests / total_requests * 100, 2) if total_requests > 0 else 0,
+                'period_days': days
+            }
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@reports_bp.route('/invoice-quality', methods=['GET'])
+@jwt_required()
+def get_quality_metrics():
+    try:
+        user_id = int(get_jwt_identity())
+        days = request.args.get('days', 60, type=int)
+        start_date = datetime.utcnow() - timedelta(days=days)
+        today = date.today()
+
+        # Get all user invoices within the period
+        invoices = Invoice.query.filter(
+            and_(
+                Invoice.user_id == user_id,
+                Invoice.created_at >= start_date
+            )
+        ).all()
+
+        total_invoices = len(invoices)
+
+        if total_invoices == 0:
+            return jsonify({
+                'quality_metrics': {
+                    'total_invoices': 0,
+                    'overdue_rate': 0,
+                    'draft_stuck_rate': 0,
+                    'missing_email_rate': 0,
+                    'missing_address_rate': 0,
+                    'missing_notes_rate': 0,
+                    'draft_to_paid_rate': 0
+                },
+                'generation_trends': [],
+                'status_distribution': {},
+                'period_days': days
+            }), 200
+
+        # Overdue rate
+        overdue_count = len([inv for inv in invoices if inv.status == 'overdue'
+                            or (inv.due_date and inv.due_date < today and inv.status not in ['paid'])])
+        overdue_rate = round(overdue_count / total_invoices * 100, 2)
+
+        # Draft-stuck rate (invoices that remain in draft status)
+        draft_stuck_count = len([inv for inv in invoices if inv.status == 'draft'])
+        draft_stuck_rate = round(draft_stuck_count / total_invoices * 100, 2)
+
+        # Missing field rates
+        missing_email = len([inv for inv in invoices if not inv.customer_email])
+        missing_address = len([inv for inv in invoices if not inv.customer_address])
+        missing_notes = len([inv for inv in invoices if not inv.notes])
+
+        # Draft-to-paid conversion rate
+        paid_count = len([inv for inv in invoices if inv.status == 'paid'])
+        draft_to_paid_rate = round(paid_count / total_invoices * 100, 2)
+
+        # Invoice generation trends (daily granularity)
+        generation_trends = db.session.query(
+            func.date(Invoice.created_at).label('day'),
+            func.count(Invoice.id).label('count')
+        ).filter(
+            and_(
+                Invoice.user_id == user_id,
+                Invoice.created_at >= start_date
+            )
+        ).group_by(
+            func.date(Invoice.created_at)
+        ).order_by(
+            func.date(Invoice.created_at)
+        ).all()
+
+        # Status distribution
+        status_distribution = {}
+        for inv in invoices:
+            status_distribution[inv.status] = status_distribution.get(inv.status, 0) + 1
+
+        return jsonify({
+            'quality_metrics': {
+                'total_invoices': total_invoices,
+                'overdue_rate': overdue_rate,
+                'overdue_count': overdue_count,
+                'draft_stuck_rate': draft_stuck_rate,
+                'draft_stuck_count': draft_stuck_count,
+                'missing_email_rate': round(missing_email / total_invoices * 100, 2),
+                'missing_email_count': missing_email,
+                'missing_address_rate': round(missing_address / total_invoices * 100, 2),
+                'missing_address_count': missing_address,
+                'missing_notes_rate': round(missing_notes / total_invoices * 100, 2),
+                'missing_notes_count': missing_notes,
+                'draft_to_paid_rate': draft_to_paid_rate,
+                'paid_count': paid_count
+            },
+            'generation_trends': [{
+                'date': str(row.day),
+                'count': row.count
+            } for row in generation_trends],
+            'status_distribution': status_distribution,
+            'period_days': days
+        }), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
