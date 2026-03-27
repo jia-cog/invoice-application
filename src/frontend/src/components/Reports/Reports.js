@@ -9,16 +9,20 @@ import {
   TrendingUp,
   DollarSign,
   FileText,
-  Users
+  Users,
+  AlertTriangle,
+  CheckCircle,
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [qualityData, setQualityData] = useState(null);
   const [reportForm, setReportForm] = useState({
     report_type: 'monthly',
     start_date: '',
@@ -27,6 +31,7 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReports();
+    fetchQualityMetrics();
     setDefaultDates();
   }, []);
 
@@ -50,6 +55,15 @@ const Reports = () => {
       toast.error('Failed to load reports');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQualityMetrics = async () => {
+    try {
+      const response = await reportsAPI.getQualityMetrics(60);
+      setQualityData(response.data);
+    } catch (error) {
+      // Quality metrics are supplementary
     }
   };
 
@@ -77,7 +91,18 @@ const Reports = () => {
     }));
   };
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const QUALITY_COLORS = {
+    good: '#10b981',
+    warning: '#f59e0b',
+    bad: '#ef4444'
+  };
+
+  const getQualityColor = (rate) => {
+    if (rate <= 10) return QUALITY_COLORS.good;
+    if (rate <= 30) return QUALITY_COLORS.warning;
+    return QUALITY_COLORS.bad;
+  };
 
   if (loading) {
     return (
@@ -253,6 +278,186 @@ const Reports = () => {
           )}
         </div>
       </div>
+
+      {/* Quality Metrics Section */}
+      {qualityData && qualityData.quality_metrics && qualityData.quality_metrics.total_invoices > 0 && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3 style={{
+            fontSize: '1.5rem',
+            fontWeight: '600',
+            color: '#1e293b',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <Activity size={24} />
+            Invoice Quality Metrics (Last {qualityData.period_days} Days)
+          </h3>
+
+          {/* Quality Metric Cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <AlertTriangle size={20} color={getQualityColor(qualityData.quality_metrics.overdue_rate)} style={{ marginBottom: '0.5rem' }} />
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Overdue Rate</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: getQualityColor(qualityData.quality_metrics.overdue_rate) }}>
+                {qualityData.quality_metrics.overdue_rate}%
+              </p>
+              <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                {qualityData.quality_metrics.overdue_count} of {qualityData.quality_metrics.total_invoices}
+              </p>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <FileText size={20} color={getQualityColor(qualityData.quality_metrics.draft_stuck_rate)} style={{ marginBottom: '0.5rem' }} />
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Draft-Stuck Rate</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: getQualityColor(qualityData.quality_metrics.draft_stuck_rate) }}>
+                {qualityData.quality_metrics.draft_stuck_rate}%
+              </p>
+              <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                {qualityData.quality_metrics.draft_stuck_count} of {qualityData.quality_metrics.total_invoices}
+              </p>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <CheckCircle size={20} color={QUALITY_COLORS.good} style={{ marginBottom: '0.5rem' }} />
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Draft-to-Paid</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: QUALITY_COLORS.good }}>
+                {qualityData.quality_metrics.draft_to_paid_rate}%
+              </p>
+              <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                {qualityData.quality_metrics.paid_count} of {qualityData.quality_metrics.total_invoices}
+              </p>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <Users size={20} color={getQualityColor(qualityData.quality_metrics.missing_email_rate)} style={{ marginBottom: '0.5rem' }} />
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Missing Email</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: getQualityColor(qualityData.quality_metrics.missing_email_rate) }}>
+                {qualityData.quality_metrics.missing_email_rate}%
+              </p>
+              <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                {qualityData.quality_metrics.missing_email_count} of {qualityData.quality_metrics.total_invoices}
+              </p>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <Users size={20} color={getQualityColor(qualityData.quality_metrics.missing_address_rate)} style={{ marginBottom: '0.5rem' }} />
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Missing Address</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: getQualityColor(qualityData.quality_metrics.missing_address_rate) }}>
+                {qualityData.quality_metrics.missing_address_rate}%
+              </p>
+              <p style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                {qualityData.quality_metrics.missing_address_count} of {qualityData.quality_metrics.total_invoices}
+              </p>
+            </div>
+          </div>
+
+          {/* Charts Row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+            gap: '2rem'
+          }}>
+            {/* Invoice Generation Trends */}
+            {qualityData.generation_trends && qualityData.generation_trends.length > 0 && (
+              <div>
+                <h4 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <TrendingUp size={18} />
+                  Invoice Generation Trends
+                </h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={qualityData.generation_trends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} name="Invoices Created" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Status Distribution */}
+            {qualityData.status_distribution && Object.keys(qualityData.status_distribution).length > 0 && (
+              <div>
+                <h4 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  <BarChart3 size={18} />
+                  Status Distribution
+                </h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(qualityData.status_distribution).map(([key, value]) => ({
+                        name: key.charAt(0).toUpperCase() + key.slice(1),
+                        value
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {Object.entries(qualityData.status_distribution).map((entry, index) => (
+                        <Cell key={`quality-cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Report Details */}
       {selectedReport && (

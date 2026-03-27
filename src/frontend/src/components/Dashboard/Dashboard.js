@@ -9,16 +9,20 @@ import {
   Clock, 
   Plus,
   Eye,
-  Calendar
+  Calendar,
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
+  const [usageData, setUsageData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchUsageData();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -29,6 +33,15 @@ const Dashboard = () => {
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsageData = async () => {
+    try {
+      const response = await reportsAPI.getUsageAnalytics(60);
+      setUsageData(response.data);
+    } catch (error) {
+      // Usage data is supplementary, don't block on failure
     }
   };
 
@@ -159,6 +172,122 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Endpoint Usage Analytics */}
+      {usageData && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '2rem'
+        }}>
+          {/* Endpoint Hit Frequencies */}
+          <div className="card">
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#1e293b',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <Activity size={20} />
+              Top Endpoints
+            </h2>
+            {usageData.endpoint_stats && usageData.endpoint_stats.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={usageData.endpoint_stats.slice(0, 8)} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="endpoint" type="category" width={150} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value) => [value, 'Hits']} />
+                  <Bar dataKey="hit_count" fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                <Activity size={36} color="#d1d5db" style={{ margin: '0 auto 0.5rem' }} />
+                <p>No endpoint data yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Daily Request Trends */}
+          <div className="card">
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#1e293b',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <TrendingUp size={20} />
+              Daily Request Trends
+            </h2>
+            {usageData.daily_trends && usageData.daily_trends.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={usageData.daily_trends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="hit_count" stroke="#10b981" strokeWidth={2} name="Requests" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                <TrendingUp size={36} color="#d1d5db" style={{ margin: '0 auto 0.5rem' }} />
+                <p>No trend data yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Usage Summary Bar */}
+      {usageData && usageData.summary && usageData.summary.total_requests > 0 && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-around',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Total Requests</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b' }}>
+                {usageData.summary.total_requests}
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Error Requests</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>
+                {usageData.summary.error_requests}
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Error Rate</p>
+              <p style={{
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                color: usageData.summary.error_rate > 10 ? '#ef4444' : '#10b981'
+              }}>
+                {usageData.summary.error_rate}%
+              </p>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Period</p>
+              <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e293b' }}>
+                {usageData.summary.period_days} days
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recent Invoices */}
       <div className="card">
