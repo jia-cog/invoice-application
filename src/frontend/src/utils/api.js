@@ -53,6 +53,12 @@ export const invoicesAPI = {
   delete: (id) => api.delete(`/invoices/${id}`),
 };
 
+// Exports API
+export const exportsAPI = {
+  getExportData: () => api.get('/invoices/export'),
+  downloadCSV: () => api.get('/invoices/export/csv', { responseType: 'blob' }),
+};
+
 // Reports API
 export const reportsAPI = {
   getAll: () => api.get('/reports/'),
