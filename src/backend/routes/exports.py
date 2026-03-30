@@ -31,6 +31,8 @@ def export_invoices():
         if start_date_str and end_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        elif start_date_str or end_date_str:
+            return jsonify({'error': 'Both start_date and end_date are required when filtering by date'}), 400
         else:
             start_date, end_date = get_last_month_range()
 
@@ -107,6 +109,8 @@ def export_invoices_csv():
         if start_date_str and end_date_str:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        elif start_date_str or end_date_str:
+            return jsonify({'error': 'Both start_date and end_date are required when filtering by date'}), 400
         else:
             start_date, end_date = get_last_month_range()
 
