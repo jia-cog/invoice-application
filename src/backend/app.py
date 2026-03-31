@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
-from models import db
+from models import db, User
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
@@ -34,6 +34,14 @@ def create_app():
     @app.errorhandler(500)
     def internal_error(error):
         return jsonify({'error': 'Internal server error'}), 500
+    
+    # JWT additional claims loader - embeds is_admin into JWT
+    @jwt.additional_claims_loader
+    def add_claims_to_access_token(identity):
+        user = User.query.get(int(identity))
+        if user:
+            return {'is_admin': user.is_admin}
+        return {'is_admin': False}
     
     # JWT error handlers
     @jwt.expired_token_loader

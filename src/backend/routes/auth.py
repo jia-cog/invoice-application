@@ -1,8 +1,24 @@
+from functools import wraps
+
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from models import db, User
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def admin_required():
+    """Decorator that checks the is_admin claim in the JWT."""
+    def wrapper(fn):
+        @wraps(fn)
+        @jwt_required()
+        def decorator(*args, **kwargs):
+            claims = get_jwt()
+            if not claims.get('is_admin', False):
+                return jsonify({'error': 'Admin access required'}), 403
+            return fn(*args, **kwargs)
+        return decorator
+    return wrapper
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -84,5 +100,16 @@ def get_profile():
         
         return jsonify({'user': user.to_dict()}), 200
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@auth_bp.route('/users', methods=['GET'])
+@admin_required()
+def get_all_users():
+    try:
+        users = User.query.order_by(User.created_at.desc()).all()
+        return jsonify({
+            'users': [user.to_dict() for user in users]
+        }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
