@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, FileText, BarChart3, Home } from 'lucide-react';
+import { LogOut, FileText, BarChart3, Home, Shield } from 'lucide-react';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -73,6 +73,22 @@ const Navbar = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {isAdmin && (
+            <span style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              color: '#d97706',
+              fontSize: '0.75rem',
+              fontWeight: '600',
+              background: '#fef3c7',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '0.25rem'
+            }}>
+              <Shield size={14} />
+              Admin
+            </span>
+          )}
           <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
             Welcome, {user?.username}
           </span>
