@@ -55,6 +55,38 @@ npm install
 npm start
 ```
 
+## Required Environment Variables (Production)
+
+The following environment variables **must** be set before starting the application. The server will refuse to start if they are missing.
+
+| Variable | Description |
+|---|---|
+| `JWT_SECRET_KEY` | Secret key used to sign and verify JWT access tokens. Must be a strong, unique value. |
+| `SECRET_KEY` | Flask session secret key. Must be a strong, unique value. |
+
+### Generating Secure Secrets
+
+Use Python's `secrets` module to generate cryptographically secure values:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Run this command **twice** to produce separate values for `JWT_SECRET_KEY` and `SECRET_KEY`. Then export them in your environment (or add them to your deployment configuration):
+
+```bash
+export JWT_SECRET_KEY="<generated-value>"
+export SECRET_KEY="<generated-value>"
+```
+
+### Optional Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `sqlite:///invoice_app.db` | Database connection URI |
+| `API_BASE_URL` | `http://localhost:5001/api` | Base URL used by the bootstrap script |
+| `ENV` / `FLASK_ENV` | *(empty)* | Set to `production` to enable production safeguards (e.g., blocks the bootstrap script) |
+
 ## Project Structure
 
 ```
