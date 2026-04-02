@@ -1,13 +1,16 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-from config import Config
+from config import Config, validate_config
 from models import db
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
 
 def create_app():
+    # Validate required environment variables before initializing the app
+    validate_config()
+
     app = Flask(__name__)
     app.config.from_object(Config)
     
