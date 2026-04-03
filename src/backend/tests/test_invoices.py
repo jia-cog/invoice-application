@@ -13,7 +13,6 @@ Comprehensive test coverage for all 5 invoice endpoints:
 import sys
 import os
 import unittest
-import json
 
 # Add the parent directory to the path to import backend modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
