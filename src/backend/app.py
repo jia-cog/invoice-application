@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
-from models import db
+from models import db, User
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
@@ -15,7 +15,12 @@ def create_app():
     db.init_app(app)
     CORS(app, origins=Config.CORS_ORIGINS)
     jwt = JWTManager(app)
-    
+
+    @jwt.additional_claims_loader
+    def add_claims_to_access_token(identity):
+        user = User.query.get(int(identity))
+        return {"is_admin": user.is_admin if user else False}
+
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(invoices_bp, url_prefix='/api/invoices')
@@ -52,9 +57,19 @@ def create_app():
         return jsonify({'error': 'Authorization token is required'}), 401
     
     # Create tables
+    # Note: If adding new columns (e.g. is_admin) to an existing SQLite database,
+    # you may need to either delete the existing invoice_app.db file (for dev) or
+    # run: ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0;
     with app.app_context():
         db.create_all()
-    
+
+        # Create default admin user if none exists
+        if not User.query.filter_by(username='admin').first():
+            admin = User(username='admin', email='admin@example.com', is_admin=True, company_name='Admin')
+            admin.set_password('admin')  # Change in production
+            db.session.add(admin)
+            db.session.commit()
+
     return app
 
 if __name__ == '__main__':
