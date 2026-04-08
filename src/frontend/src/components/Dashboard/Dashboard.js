@@ -9,16 +9,20 @@ import {
   Clock, 
   Plus,
   Eye,
-  Calendar
+  Calendar,
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
+  const [usageData, setUsageData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchUsageAnalytics();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -29,6 +33,15 @@ const Dashboard = () => {
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsageAnalytics = async () => {
+    try {
+      const response = await reportsAPI.getUsageAnalytics(60);
+      setUsageData(response.data);
+    } catch (error) {
+      // Usage data is supplementary, don't block on errors
     }
   };
 
@@ -44,6 +57,8 @@ const Dashboard = () => {
         return 'status-badge status-draft';
     }
   };
+
+  const USAGE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
   if (loading) {
     return (
@@ -159,6 +174,135 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Endpoint Usage Analytics */}
+      {usageData && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '2rem'
+        }}>
+          {/* Daily Request Trends */}
+          <div className="card">
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#1e293b',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <Activity size={20} />
+              API Request Trends (Last {usageData.days} Days)
+            </h3>
+            {usageData.daily_trends && usageData.daily_trends.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={usageData.daily_trends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(val) => {
+                      const d = new Date(val + 'T00:00:00');
+                      return format(d, 'MM/dd');
+                    }}
+                  />
+                  <YAxis />
+                  <Tooltip
+                    labelFormatter={(val) => {
+                      const d = new Date(val + 'T00:00:00');
+                      return format(d, 'MMM dd, yyyy');
+                    }}
+                    formatter={(value) => [value, 'Requests']}
+                  />
+                  <Bar dataKey="hit_count" fill="#3b82f6" name="Requests" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                <Activity size={36} color="#d1d5db" style={{ margin: '0 auto 0.5rem' }} />
+                <p>No request data available yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Top Endpoints */}
+          <div className="card">
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#1e293b',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <TrendingUp size={20} />
+              Top Endpoints
+            </h3>
+            {usageData.endpoint_stats && usageData.endpoint_stats.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={usageData.endpoint_stats.slice(0, 6).map((stat) => ({
+                        name: `${stat.method} ${stat.endpoint}`,
+                        value: stat.hit_count
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                      outerRadius={70}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {usageData.endpoint_stats.slice(0, 6).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={USAGE_COLORS[index % USAGE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ marginTop: '0.5rem' }}>
+                  {usageData.endpoint_stats.slice(0, 6).map((stat, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '0.375rem 0',
+                      borderBottom: index < 5 ? '1px solid #f3f4f6' : 'none',
+                      fontSize: '0.8125rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          backgroundColor: USAGE_COLORS[index % USAGE_COLORS.length]
+                        }} />
+                        <span style={{ color: '#374151' }}>
+                          <strong>{stat.method}</strong> {stat.endpoint}
+                        </span>
+                      </div>
+                      <span style={{ fontWeight: '600', color: '#1e293b' }}>
+                        {stat.hit_count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
+                <TrendingUp size={36} color="#d1d5db" style={{ margin: '0 auto 0.5rem' }} />
+                <p>No endpoint data available yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Recent Invoices */}
       <div className="card">
