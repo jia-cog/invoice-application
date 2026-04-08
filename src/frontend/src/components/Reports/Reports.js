@@ -9,16 +9,18 @@ import {
   TrendingUp,
   DollarSign,
   FileText,
-  Users
+  Users,
+  AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [qualityMetrics, setQualityMetrics] = useState(null);
   const [reportForm, setReportForm] = useState({
     report_type: 'monthly',
     start_date: '',
@@ -27,6 +29,7 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReports();
+    fetchQualityMetrics();
     setDefaultDates();
   }, []);
 
@@ -69,6 +72,15 @@ const Reports = () => {
     }
   };
 
+  const fetchQualityMetrics = async () => {
+    try {
+      const response = await reportsAPI.getQualityMetrics(60);
+      setQualityMetrics(response.data);
+    } catch (error) {
+      // Quality metrics are supplementary
+    }
+  };
+
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setReportForm(prev => ({
@@ -78,6 +90,7 @@ const Reports = () => {
   };
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+  const QUALITY_COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'];
 
   if (loading) {
     return (
@@ -253,6 +266,184 @@ const Reports = () => {
           )}
         </div>
       </div>
+
+      {/* Quality Metrics Section */}
+      {qualityMetrics && qualityMetrics.total_invoices > 0 && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3 style={{
+            fontSize: '1.5rem',
+            fontWeight: '600',
+            color: '#1e293b',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <AlertTriangle size={24} />
+            Invoice Quality Metrics (Last {qualityMetrics.days} Days)
+          </h3>
+
+          {/* Quality Rate Cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #fecaca',
+              backgroundColor: '#fef2f2'
+            }}>
+              <p style={{ color: '#991b1b', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>Overdue Rate</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#dc2626' }}>
+                {qualityMetrics.overdue_rate}%
+              </p>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #fed7aa',
+              backgroundColor: '#fff7ed'
+            }}>
+              <p style={{ color: '#9a3412', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>Draft-Stuck Rate</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#ea580c' }}>
+                {qualityMetrics.draft_stuck_rate}%
+              </p>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #bbf7d0',
+              backgroundColor: '#f0fdf4'
+            }}>
+              <p style={{ color: '#166534', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>Conversion Rate</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#16a34a' }}>
+                {qualityMetrics.draft_to_paid_rate}%
+              </p>
+            </div>
+
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              backgroundColor: '#f9fafb'
+            }}>
+              <p style={{ color: '#374151', fontSize: '0.8125rem', marginBottom: '0.25rem' }}>Total Invoices</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#1e293b' }}>
+                {qualityMetrics.total_invoices}
+              </p>
+            </div>
+          </div>
+
+          {/* Charts Row */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+            gap: '2rem',
+            marginBottom: '2rem'
+          }}>
+            {/* Missing Fields Chart */}
+            <div>
+              <h4 style={{
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: '#1e293b',
+                marginBottom: '1rem'
+              }}>
+                Missing Field Rates
+              </h4>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={[
+                  { name: 'Email', rate: qualityMetrics.missing_email_rate },
+                  { name: 'Address', rate: qualityMetrics.missing_address_rate },
+                  { name: 'Notes', rate: qualityMetrics.missing_notes_rate }
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(value) => [`${value}%`, 'Missing Rate']} />
+                  <Bar dataKey="rate" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Status Breakdown Pie */}
+            <div>
+              <h4 style={{
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: '#1e293b',
+                marginBottom: '1rem'
+              }}>
+                Status Breakdown
+              </h4>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={Object.entries(qualityMetrics.status_breakdown).map(([key, value]) => ({
+                      name: key.charAt(0).toUpperCase() + key.slice(1),
+                      value
+                    }))}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => percent > 0 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {Object.entries(qualityMetrics.status_breakdown).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={QUALITY_COLORS[index % QUALITY_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Invoice Generation Trends */}
+          {qualityMetrics.daily_trends && qualityMetrics.daily_trends.length > 0 && (
+            <div>
+              <h4 style={{
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: '#1e293b',
+                marginBottom: '1rem'
+              }}>
+                Invoice Generation Trends
+              </h4>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={qualityMetrics.daily_trends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(val) => {
+                      const d = new Date(val + 'T00:00:00');
+                      return format(d, 'MM/dd');
+                    }}
+                  />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip
+                    labelFormatter={(val) => {
+                      const d = new Date(val + 'T00:00:00');
+                      return format(d, 'MMM dd, yyyy');
+                    }}
+                  />
+                  <Line yAxisId="left" type="monotone" dataKey="count" stroke="#3b82f6" name="Invoices Created" strokeWidth={2} />
+                  <Line yAxisId="right" type="monotone" dataKey="total_amount" stroke="#10b981" name="Total Amount ($)" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Report Details */}
       {selectedReport && (
