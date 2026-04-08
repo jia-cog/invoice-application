@@ -1,0 +1,11 @@
+# Production CORS Configuration
+# Managed by Ansible - do not edit manually
+#
+# This file restricts CORS origins to only the production frontend domain,
+# replacing the default wildcard '*' configuration.
+
+CORS_ORIGINS = [
+{% for origin in cors_allowed_origins %}
+    "{{ origin }}",
+{% endfor %}
+]

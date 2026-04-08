@@ -1,0 +1,78 @@
+---
+# Database Role
+# Handles SQLite database setup with safety guards against destructive re-initialization
+
+- name: Create database directory
+  ansible.builtin.file:
+    path: "{{ database_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Check if database file already exists
+  ansible.builtin.stat:
+    path: "{{ database_dir }}/invoice_app.db"
+  register: db_file
+
+- name: Display database status
+  ansible.builtin.debug:
+    msg: >-
+      Database file {{ 'EXISTS' if db_file.stat.exists else 'DOES NOT EXIST' }}
+      at {{ database_dir }}/invoice_app.db.
+      Schema initialization will {{ 'be SKIPPED (db_initialize_schema is false)'
+      if not db_initialize_schema else
+      ('PROCEED (first-time provisioning)' if not db_file.stat.exists else
+      'be SKIPPED (database already exists - set db_initialize_schema=true to force)') }}.
+
+# Safety guard: Only initialize the database schema when BOTH conditions are met:
+# 1. db_initialize_schema is explicitly set to true
+# 2. The database file does not already exist
+# This prevents the destructive db.drop_all() in init_db.py from wiping production data.
+- name: Initialize database schema (first-time provisioning only)
+  ansible.builtin.command:
+    cmd: "{{ venv_dir }}/bin/python -c \"
+      from app import create_app;
+      from models import db;
+      app = create_app();
+      ctx = app.app_context();
+      ctx.push();
+      db.create_all();
+      print('Tables created successfully');
+      ctx.pop()
+      \""
+    chdir: "{{ backend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  when:
+    - db_initialize_schema | bool
+    - not db_file.stat.exists
+  register: db_init_result
+  changed_when: db_init_result.stdout is defined and 'Tables created successfully' in db_init_result.stdout
+
+- name: Display database initialization result
+  ansible.builtin.debug:
+    msg: "{{ db_init_result.stdout | default('Schema initialization was skipped') }}"
+
+- name: Set database file permissions
+  ansible.builtin.file:
+    path: "{{ database_dir }}/invoice_app.db"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: db_file.stat.exists or (db_init_result is defined and db_init_result.changed)
+
+- name: Warn if forced re-initialization was requested on existing database
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: db_initialize_schema is true but the database already exists.
+      Re-initialization has been BLOCKED to prevent data loss.
+      If you truly need to recreate the schema, manually remove
+      {{ database_dir }}/invoice_app.db first, then re-run the playbook.
+  when:
+    - db_initialize_schema | bool
+    - db_file.stat.exists

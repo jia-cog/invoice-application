@@ -1,0 +1,12 @@
+# Gunicorn configuration for Invoice Application
+# Managed by Ansible - do not edit manually
+
+bind = "{{ gunicorn_bind }}"
+workers = {{ gunicorn_workers }}
+timeout = {{ gunicorn_timeout }}
+worker_class = "sync"
+accesslog = "/var/log/invoice-app/gunicorn-access.log"
+errorlog = "/var/log/invoice-app/gunicorn-error.log"
+loglevel = "info"
+capture_output = True
+preload_app = True

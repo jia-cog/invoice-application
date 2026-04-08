@@ -1,0 +1,111 @@
+---
+# Security Role
+# Configures firewall, SSL certificates, CORS restrictions, and secret management
+
+# --- Firewall Configuration ---
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+- name: Set UFW default policy - deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set UFW default policy - allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow SSH through firewall
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Allow configured TCP ports through firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ firewall_allowed_tcp_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# --- SSL Certificate Setup ---
+- name: Check if SSL certificate already exists
+  ansible.builtin.stat:
+    path: "{{ nginx_ssl_certificate }}"
+  register: ssl_cert
+
+- name: Obtain SSL certificate with Certbot
+  ansible.builtin.command:
+    cmd: >
+      certbot certonly --nginx
+      -d {{ frontend_domain }}
+      --non-interactive
+      --agree-tos
+      --email {{ certbot_email | default('admin@' + frontend_domain) }}
+  when:
+    - nginx_ssl_enabled | bool
+    - not ssl_cert.stat.exists
+  changed_when: true
+  notify: Reload nginx
+
+- name: Set up Certbot auto-renewal cron job
+  ansible.builtin.cron:
+    name: "Certbot auto-renewal"
+    minute: "30"
+    hour: "2"
+    day: "*"
+    month: "*"
+    weekday: "*"
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+    user: root
+  when: nginx_ssl_enabled | bool
+
+# --- CORS Security ---
+- name: Deploy production CORS configuration override
+  ansible.builtin.template:
+    src: cors_config.py.j2
+    dest: "{{ backend_dir }}/cors_config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice-backend
+
+# --- Secret file permissions ---
+- name: Ensure backend .env file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+
+- name: Check if database file exists for permissions
+  ansible.builtin.stat:
+    path: "{{ database_dir }}/invoice_app.db"
+  register: db_file_check
+
+- name: Ensure database file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ database_dir }}/invoice_app.db"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  when: db_file_check.stat.exists
+
+# --- Fail2ban for SSH protection ---
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started

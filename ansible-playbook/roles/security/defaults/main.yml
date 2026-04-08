@@ -1,0 +1,16 @@
+---
+frontend_domain: invoice.example.com
+nginx_ssl_enabled: true
+nginx_ssl_certificate: "/etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem"
+nginx_ssl_certificate_key: "/etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem"
+certbot_email: "admin@{{ frontend_domain }}"
+backend_dir: /opt/invoice-application/src/backend
+database_dir: "{{ backend_dir }}/instance"
+app_user: invoice
+app_group: invoice
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"
+firewall_allowed_tcp_ports:
+  - "22"
+  - "80"
+  - "443"

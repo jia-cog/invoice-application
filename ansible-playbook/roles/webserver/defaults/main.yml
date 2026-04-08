@@ -1,0 +1,9 @@
+---
+frontend_domain: invoice.example.com
+frontend_dir: /opt/invoice-application/src/frontend
+backend_port: 5001
+nginx_ssl_enabled: true
+nginx_ssl_certificate: "/etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem"
+nginx_ssl_certificate_key: "/etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem"
+app_user: invoice
+app_group: invoice

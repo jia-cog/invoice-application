@@ -1,0 +1,18 @@
+---
+app_base_dir: /opt/invoice-application
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_version: master
+backend_dir: "{{ app_base_dir }}/src/backend"
+venv_dir: "{{ backend_dir }}/.venv"
+app_user: invoice
+app_group: invoice
+backend_port: 5001
+gunicorn_workers: 3
+gunicorn_timeout: 120
+gunicorn_bind: "127.0.0.1:{{ backend_port }}"
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+database_dir: "{{ backend_dir }}/instance"
+jwt_secret_key: "CHANGE_ME"
+flask_secret_key: "CHANGE_ME"
+cors_allowed_origins:
+  - "https://invoice.example.com"

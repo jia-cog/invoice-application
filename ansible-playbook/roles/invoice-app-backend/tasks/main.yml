@@ -1,0 +1,86 @@
+---
+# Backend Role
+# Deploys the Flask backend with Gunicorn, virtual environment, and systemd service
+
+- name: Create application base directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Clone or update application repository
+  ansible.builtin.git:
+    repo: "{{ app_repo_url }}"
+    dest: "{{ app_base_dir }}"
+    version: "{{ app_repo_version }}"
+    force: false
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv {{ venv_dir }}
+    creates: "{{ venv_dir }}/bin/activate"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Upgrade pip in virtual environment
+  ansible.builtin.command:
+    cmd: "{{ venv_dir }}/bin/pip install --upgrade pip"
+  become: true
+  become_user: "{{ app_user }}"
+  changed_when: pip_upgrade.stdout is search('Successfully installed')
+  register: pip_upgrade
+
+- name: Install Python dependencies from requirements.txt
+  ansible.builtin.pip:
+    requirements: "{{ app_base_dir }}/requirements.txt"
+    virtualenv: "{{ venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Install Gunicorn in virtual environment
+  ansible.builtin.pip:
+    name: gunicorn
+    state: present
+    virtualenv: "{{ venv_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Deploy backend environment file
+  ansible.builtin.template:
+    src: backend.env.j2
+    dest: "{{ backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  notify: Restart invoice-backend
+
+- name: Deploy Gunicorn configuration
+  ansible.builtin.template:
+    src: gunicorn.conf.py.j2
+    dest: "{{ backend_dir }}/gunicorn.conf.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: Restart invoice-backend
+
+- name: Deploy systemd service file
+  ansible.builtin.template:
+    src: invoice-backend.service.j2
+    dest: /etc/systemd/system/invoice-backend.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart invoice-backend
+
+- name: Enable and start invoice-backend service
+  ansible.builtin.systemd:
+    name: invoice-backend
+    enabled: true
+    state: started
+    daemon_reload: true
