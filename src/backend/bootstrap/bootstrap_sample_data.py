@@ -30,6 +30,8 @@ from typing import Union, Optional
 from urllib import request, error
 
 DEFAULT_BASE_URL = "http://localhost:5001/api"
+
+# Default development-only credentials — NOT for production use
 USERNAME = "testuser@email.com"
 EMAIL = "testuser@email.com"
 PASSWORD = "topsecretpassword"
@@ -90,7 +92,23 @@ def get_profile(base_url: str, token: str) -> tuple[Optional[int], dict]:
     return _http_request("GET", url, headers=headers)
 
 
+def _check_production_environment() -> bool:
+    """Return True if the current environment appears to be production."""
+    env = os.environ.get("ENV", "").lower()
+    flask_env = os.environ.get("FLASK_ENV", "").lower()
+    return env == "production" or flask_env == "production"
+
+
 def main() -> int:
+    # Prevent accidental execution in production environments
+    if _check_production_environment():
+        print(
+            "ERROR: This bootstrap script must NOT be run in a production environment.\n"
+            "It contains hardcoded test credentials intended only for local development.\n"
+            "Detected ENV=production or FLASK_ENV=production. Aborting."
+        )
+        return 1
+
     base_url = os.environ.get("API_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
     print(f"Using API base URL: {base_url}")
