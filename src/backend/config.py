@@ -14,4 +14,6 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-change-in-production'
     
     # CORS configuration
-    CORS_ORIGINS = ['http://localhost:3000','http://localhost:5001', '*']  # React development server
+    # In production, set CORS_ORIGINS env var to a comma-separated list of allowed origins
+    # e.g., CORS_ORIGINS=https://invoice.example.com
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:5001,*').split(',')

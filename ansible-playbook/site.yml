@@ -29,11 +29,11 @@
     - role: system-deps
       tags: [system]
 
-    - role: database
-      tags: [database]
-
     - role: invoice-app-backend
       tags: [backend]
+
+    - role: database
+      tags: [database]
 
     - role: invoice-app-frontend
       tags: [frontend]

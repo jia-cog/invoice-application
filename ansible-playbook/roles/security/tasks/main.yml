@@ -68,14 +68,11 @@
   when: nginx_ssl_enabled | bool
 
 # --- CORS Security ---
-- name: Deploy production CORS configuration override
-  ansible.builtin.template:
-    src: cors_config.py.j2
-    dest: "{{ backend_dir }}/cors_config.py"
-    owner: "{{ app_user }}"
-    group: "{{ app_group }}"
-    mode: "0644"
-  notify: Restart invoice-backend
+# CORS is now configured via the CORS_ORIGINS environment variable in the
+# backend .env file (deployed by the invoice-app-backend role).
+# The Flask config.py reads CORS_ORIGINS from the environment and splits
+# on commas, restricting allowed origins to the production frontend domain.
+# No separate file deployment is needed.
 
 # --- Secret file permissions ---
 - name: Ensure backend .env file has restrictive permissions

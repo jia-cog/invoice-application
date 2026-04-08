@@ -3,7 +3,7 @@ Description=Invoice Application Backend (Gunicorn)
 After=network.target
 
 [Service]
-Type=notify
+Type=simple
 User={{ app_user }}
 Group={{ app_group }}
 WorkingDirectory={{ backend_dir }}
