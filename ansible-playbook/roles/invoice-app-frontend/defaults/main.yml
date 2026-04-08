@@ -1,0 +1,5 @@
+---
+frontend_dir: /opt/invoice-application/src/frontend
+frontend_api_url: "https://invoice.example.com/api"
+app_user: invoice
+app_group: invoice

@@ -1,0 +1,10 @@
+---
+db_initialize_schema: false
+database_dir: "{{ backend_dir }}/instance"
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+app_user: invoice
+app_group: invoice
+venv_dir: "{{ backend_dir }}/.venv"
+backend_dir: /opt/invoice-application/src/backend
+jwt_secret_key: "CHANGE_ME"
+flask_secret_key: "CHANGE_ME"

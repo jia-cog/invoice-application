@@ -1,0 +1,79 @@
+---
+# =============================================================================
+# Invoice Application - Production Environment Configuration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Application paths
+# -----------------------------------------------------------------------------
+app_base_dir: /opt/invoice-application
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_version: master
+backend_dir: "{{ app_base_dir }}/src/backend"
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+venv_dir: "{{ backend_dir }}/.venv"
+
+# -----------------------------------------------------------------------------
+# Application user
+# -----------------------------------------------------------------------------
+app_user: invoice
+app_group: invoice
+
+# -----------------------------------------------------------------------------
+# Backend configuration
+# -----------------------------------------------------------------------------
+backend_port: 5001
+gunicorn_workers: 3
+gunicorn_timeout: 120
+gunicorn_bind: "127.0.0.1:{{ backend_port }}"
+
+# -----------------------------------------------------------------------------
+# Database configuration
+# -----------------------------------------------------------------------------
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+database_dir: "{{ backend_dir }}/instance"
+# Safety flag: set to true only for first-time provisioning
+# This controls whether init_db.py (which calls db.drop_all()) is executed.
+# NEVER set to true on an existing deployment unless you intend to wipe data.
+db_initialize_schema: false
+
+# -----------------------------------------------------------------------------
+# Security secrets
+# Generate secure values before deploying:
+#   python3 -c "import secrets; print(secrets.token_urlsafe(64))"
+# -----------------------------------------------------------------------------
+jwt_secret_key: "CHANGE_ME_jwt_secret_key"
+flask_secret_key: "CHANGE_ME_flask_secret_key"
+
+# -----------------------------------------------------------------------------
+# Frontend configuration
+# -----------------------------------------------------------------------------
+frontend_domain: "invoice.example.com"
+frontend_api_url: "https://{{ frontend_domain }}/api"
+
+# -----------------------------------------------------------------------------
+# Nginx / SSL configuration
+# -----------------------------------------------------------------------------
+nginx_ssl_certificate: "/etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem"
+nginx_ssl_certificate_key: "/etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem"
+nginx_ssl_enabled: true
+
+# -----------------------------------------------------------------------------
+# Firewall configuration
+# -----------------------------------------------------------------------------
+firewall_allowed_tcp_ports:
+  - "22"
+  - "80"
+  - "443"
+
+# -----------------------------------------------------------------------------
+# Node.js version
+# -----------------------------------------------------------------------------
+nodejs_version: "18"
+
+# -----------------------------------------------------------------------------
+# CORS configuration
+# Restrict to the production frontend domain (replaces wildcard '*')
+# -----------------------------------------------------------------------------
+cors_allowed_origins:
+  - "https://{{ frontend_domain }}"

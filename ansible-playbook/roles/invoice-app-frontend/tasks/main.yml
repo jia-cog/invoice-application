@@ -1,0 +1,43 @@
+---
+# Frontend Role
+# Builds the React frontend and sets up static file serving
+
+- name: Install npm dependencies
+  ansible.builtin.command:
+    cmd: npm ci --production=false
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  changed_when: npm_install.stdout is search('added')
+  register: npm_install
+
+- name: Build React production bundle
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ frontend_dir }}"
+  become: true
+  become_user: "{{ app_user }}"
+  environment:
+    REACT_APP_API_URL: "{{ frontend_api_url }}"
+    NODE_ENV: production
+    CI: "true"
+  register: frontend_build
+  changed_when: frontend_build.rc == 0
+
+- name: Verify build directory exists
+  ansible.builtin.stat:
+    path: "{{ frontend_dir }}/build"
+  register: build_dir
+
+- name: Fail if build directory is missing
+  ansible.builtin.fail:
+    msg: "React build failed - {{ frontend_dir }}/build does not exist"
+  when: not build_dir.stat.exists
+
+- name: Set ownership on build directory
+  ansible.builtin.file:
+    path: "{{ frontend_dir }}/build"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: true

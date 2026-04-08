@@ -1,0 +1,29 @@
+[Unit]
+Description=Invoice Application Backend (Gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ backend_dir }}
+EnvironmentFile={{ backend_dir }}/.env
+ExecStart={{ venv_dir }}/bin/gunicorn --config {{ backend_dir }}/gunicorn.conf.py "app:create_app()"
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=append:/var/log/invoice-app/backend.log
+StandardError=append:/var/log/invoice-app/backend-error.log
+
+# Security hardening
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths={{ database_dir }} /var/log/invoice-app
+
+[Install]
+WantedBy=multi-user.target
