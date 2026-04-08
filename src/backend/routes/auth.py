@@ -1,8 +1,21 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+from functools import wraps
 from models import db, User
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def admin_required(fn):
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        claims = get_jwt()
+        if not claims.get("is_admin", False):
+            return jsonify({"error": "Admin access required"}), 403
+        return fn(*args, **kwargs)
+    return wrapper
+
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -71,6 +84,13 @@ def login():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@auth_bp.route('/users', methods=['GET'])
+@admin_required
+def list_users():
+    users = User.query.all()
+    return jsonify({'users': [u.to_dict() for u in users]}), 200
+
 
 @auth_bp.route('/profile', methods=['GET'])
 @jwt_required()
