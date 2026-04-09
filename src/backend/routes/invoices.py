@@ -1,16 +1,17 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date
 from models import db, Invoice, InvoiceItem, User
+from utils.decorators import auth_required
 import uuid
 
 invoices_bp = Blueprint('invoices', __name__)
 
 @invoices_bp.route('/', methods=['GET'])
-@jwt_required()
+@auth_required
 def get_invoices():
     try:
-        user_id = int(get_jwt_identity())
+        user_id = g.current_user_id
         invoices = Invoice.query.filter_by(user_id=user_id).order_by(Invoice.created_at.desc()).all()
         
         return jsonify({
@@ -21,10 +22,10 @@ def get_invoices():
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['GET'])
-@jwt_required()
+@auth_required
 def get_invoice(invoice_id):
     try:
-        user_id = int(get_jwt_identity())
+        user_id = g.current_user_id
         invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
         
         if not invoice:
@@ -36,10 +37,10 @@ def get_invoice(invoice_id):
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/', methods=['POST'])
-@jwt_required()
+@auth_required
 def create_invoice():
     try:
-        user_id = int(get_jwt_identity())
+        user_id = g.current_user_id
         data = request.get_json()
         
         # Validate required fields
@@ -96,10 +97,10 @@ def create_invoice():
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['PUT'])
-@jwt_required()
+@auth_required
 def update_invoice(invoice_id):
     try:
-        user_id = int(get_jwt_identity())
+        user_id = g.current_user_id
         invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
         
         if not invoice:
@@ -155,10 +156,10 @@ def update_invoice(invoice_id):
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['DELETE'])
-@jwt_required()
+@auth_required
 def delete_invoice(invoice_id):
     try:
-        user_id = int(get_jwt_identity())
+        user_id = g.current_user_id
         invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
         
         if not invoice:

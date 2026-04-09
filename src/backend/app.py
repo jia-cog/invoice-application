@@ -49,7 +49,9 @@ def create_app():
     @jwt.unauthorized_loader
     def missing_token_callback(error):
         print(f"JWT Error: Missing token. Error: {error}")
-        return jsonify({'error': 'Authorization token is required'}), 401
+        response = jsonify({'error': 'Authorization token is required'})
+        response.headers['WWW-Authenticate'] = 'Basic realm="Login Required", Bearer'
+        return response, 401
     
     # Create tables
     with app.app_context():

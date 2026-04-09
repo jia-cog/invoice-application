@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { LogIn, User, Lock } from 'lucide-react';
+import { LogIn, User, Lock, Shield } from 'lucide-react';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +10,7 @@ const Login = () => {
     password: '',
   });
   const [loading, setLoading] = useState(false);
+  const [useBasicAuth, setUseBasicAuth] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -25,7 +26,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const result = await login(formData);
+      const result = await login(formData, useBasicAuth);
       if (result.success) {
         toast.success('Login successful!');
         navigate('/dashboard');
@@ -98,6 +99,36 @@ const Login = () => {
               placeholder="Enter your password"
               required
             />
+          </div>
+
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginTop: '1rem',
+            padding: '0.75rem',
+            backgroundColor: useBasicAuth ? '#eff6ff' : '#f8fafc',
+            borderRadius: '0.5rem',
+            border: useBasicAuth ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+            onClick={() => setUseBasicAuth(!useBasicAuth)}
+          >
+            <input
+              type="checkbox"
+              checked={useBasicAuth}
+              onChange={(e) => setUseBasicAuth(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            <Shield size={16} style={{ color: useBasicAuth ? '#3b82f6' : '#94a3b8' }} />
+            <span style={{
+              fontSize: '0.875rem',
+              color: useBasicAuth ? '#1e40af' : '#64748b',
+              fontWeight: useBasicAuth ? '500' : '400'
+            }}>
+              Use HTTP Basic Authentication
+            </span>
           </div>
 
           <button
