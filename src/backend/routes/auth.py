@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from models import db, User
 
 auth_bp = Blueprint('auth', __name__)
@@ -82,7 +82,8 @@ def get_profile():
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        return jsonify({'user': user.to_dict()}), 200
+        claims = get_jwt()
+        return jsonify({'user': user.to_dict(), 'is_admin': claims.get('is_admin', False)}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

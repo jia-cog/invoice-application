@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date
 from models import db, Invoice, InvoiceItem, User
+from utils.decorators import admin_required
 import uuid
 
 invoices_bp = Blueprint('invoices', __name__)
@@ -152,6 +153,20 @@ def update_invoice(invoice_id):
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@invoices_bp.route('/all', methods=['GET'])
+@admin_required
+def get_all_invoices():
+    """Admin-only endpoint to retrieve all invoices across all users."""
+    try:
+        invoices = Invoice.query.order_by(Invoice.created_at.desc()).all()
+
+        return jsonify({
+            'invoices': [invoice.to_dict() for invoice in invoices]
+        }), 200
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['DELETE'])
