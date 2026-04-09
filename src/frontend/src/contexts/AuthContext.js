@@ -32,9 +32,14 @@ export const AuthProvider = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = async (credentials) => {
+  const login = async (credentials, useBasicAuth = false) => {
     try {
-      const response = await authAPI.login(credentials);
+      let response;
+      if (useBasicAuth) {
+        response = await authAPI.loginBasic(credentials.username, credentials.password);
+      } else {
+        response = await authAPI.login(credentials);
+      }
       const { access_token, user: userData } = response.data;
 
       localStorage.setItem('token', access_token);

@@ -41,6 +41,14 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
+  loginBasic: (username, password) => {
+    const encoded = btoa(`${username}:${password}`);
+    return api.post('/auth/login', null, {
+      headers: {
+        'Authorization': `Basic ${encoded}`,
+      },
+    });
+  },
   getProfile: () => api.get('/auth/profile'),
 };
 
