@@ -11,6 +11,8 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     company_name = db.Column(db.String(200))
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    is_authorized = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationship with invoices
@@ -28,6 +30,8 @@ class User(db.Model):
             'username': self.username,
             'email': self.email,
             'company_name': self.company_name,
+            'is_admin': self.is_admin,
+            'is_authorized': self.is_authorized,
             'created_at': self.created_at.isoformat()
         }
 

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_
 from models import db, Invoice, Report, User
@@ -12,7 +12,13 @@ reports_bp = Blueprint('reports', __name__)
 def get_reports():
     try:
         user_id = int(get_jwt_identity())
-        reports = Report.query.filter_by(user_id=user_id).order_by(Report.created_at.desc()).all()
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
+
+        if is_admin:
+            reports = Report.query.order_by(Report.created_at.desc()).all()
+        else:
+            reports = Report.query.filter_by(user_id=user_id).order_by(Report.created_at.desc()).all()
         
         return jsonify({
             'reports': [report.to_dict() for report in reports]
@@ -26,6 +32,8 @@ def get_reports():
 def generate_report():
     try:
         user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
         data = request.get_json()
         
         # Validate required fields
@@ -36,13 +44,21 @@ def generate_report():
         end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
         
         # Get invoices in the date range
-        invoices = Invoice.query.filter(
-            and_(
-                Invoice.user_id == user_id,
-                Invoice.issue_date >= start_date,
-                Invoice.issue_date <= end_date
-            )
-        ).all()
+        if is_admin:
+            invoices = Invoice.query.filter(
+                and_(
+                    Invoice.issue_date >= start_date,
+                    Invoice.issue_date <= end_date
+                )
+            ).all()
+        else:
+            invoices = Invoice.query.filter(
+                and_(
+                    Invoice.user_id == user_id,
+                    Invoice.issue_date >= start_date,
+                    Invoice.issue_date <= end_date
+                )
+            ).all()
         
         # Calculate report metrics
         total_invoices = len(invoices)
@@ -135,19 +151,27 @@ def generate_report():
 def get_dashboard_data():
     try:
         user_id = int(get_jwt_identity())
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
         
         # Get current month data
         today = date.today()
         start_of_month = today.replace(day=1)
         
-        # Get all invoices for the user
-        all_invoices = Invoice.query.filter_by(user_id=user_id).all()
-        current_month_invoices = Invoice.query.filter(
-            and_(
-                Invoice.user_id == user_id,
+        # Get all invoices (or just this user's)
+        if is_admin:
+            all_invoices = Invoice.query.all()
+            current_month_invoices = Invoice.query.filter(
                 Invoice.issue_date >= start_of_month
-            )
-        ).all()
+            ).all()
+        else:
+            all_invoices = Invoice.query.filter_by(user_id=user_id).all()
+            current_month_invoices = Invoice.query.filter(
+                and_(
+                    Invoice.user_id == user_id,
+                    Invoice.issue_date >= start_of_month
+                )
+            ).all()
         
         # Calculate metrics
         total_invoices = len(all_invoices)
@@ -159,9 +183,14 @@ def get_dashboard_data():
         overdue_invoices = [inv for inv in all_invoices if inv.status == 'overdue']
         
         # Recent invoices (last 5)
-        recent_invoices = Invoice.query.filter_by(user_id=user_id).order_by(
-            Invoice.created_at.desc()
-        ).limit(5).all()
+        if is_admin:
+            recent_invoices = Invoice.query.order_by(
+                Invoice.created_at.desc()
+            ).limit(5).all()
+        else:
+            recent_invoices = Invoice.query.filter_by(user_id=user_id).order_by(
+                Invoice.created_at.desc()
+            ).limit(5).all()
         
         dashboard_data = {
             'overview': {
@@ -185,7 +214,13 @@ def get_dashboard_data():
 def delete_report(report_id):
     try:
         user_id = int(get_jwt_identity())
-        report = Report.query.filter_by(id=report_id, user_id=user_id).first()
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
+
+        if is_admin:
+            report = Report.query.filter_by(id=report_id).first()
+        else:
+            report = Report.query.filter_by(id=report_id, user_id=user_id).first()
         
         if not report:
             return jsonify({'error': 'Report not found'}), 404

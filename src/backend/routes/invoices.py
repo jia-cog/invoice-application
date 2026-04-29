@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, date
 from models import db, Invoice, InvoiceItem, User
 import uuid
@@ -11,7 +11,13 @@ invoices_bp = Blueprint('invoices', __name__)
 def get_invoices():
     try:
         user_id = int(get_jwt_identity())
-        invoices = Invoice.query.filter_by(user_id=user_id).order_by(Invoice.created_at.desc()).all()
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
+
+        if is_admin:
+            invoices = Invoice.query.order_by(Invoice.created_at.desc()).all()
+        else:
+            invoices = Invoice.query.filter_by(user_id=user_id).order_by(Invoice.created_at.desc()).all()
         
         return jsonify({
             'invoices': [invoice.to_dict() for invoice in invoices]
@@ -25,7 +31,13 @@ def get_invoices():
 def get_invoice(invoice_id):
     try:
         user_id = int(get_jwt_identity())
-        invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
+
+        if is_admin:
+            invoice = Invoice.query.filter_by(id=invoice_id).first()
+        else:
+            invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
         
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
@@ -100,7 +112,13 @@ def create_invoice():
 def update_invoice(invoice_id):
     try:
         user_id = int(get_jwt_identity())
-        invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
+
+        if is_admin:
+            invoice = Invoice.query.filter_by(id=invoice_id).first()
+        else:
+            invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
         
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
@@ -159,7 +177,13 @@ def update_invoice(invoice_id):
 def delete_invoice(invoice_id):
     try:
         user_id = int(get_jwt_identity())
-        invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
+        claims = get_jwt()
+        is_admin = claims.get("is_admin", False)
+
+        if is_admin:
+            invoice = Invoice.query.filter_by(id=invoice_id).first()
+        else:
+            invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
         
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
