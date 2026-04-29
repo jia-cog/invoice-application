@@ -81,6 +81,22 @@ invoice-application/
 - `POST /api/invoices` - Create new invoice
 - `GET /api/reports` - Generate reports
 
+## Database Migration
+
+The `is_admin` column was added to the `User` model. For new databases, `db.create_all()` handles this automatically. For existing databases, run:
+
+```sql
+ALTER TABLE user ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL;
+ALTER TABLE user ADD COLUMN is_authorized BOOLEAN DEFAULT 1 NOT NULL;
+```
+
+Or drop and recreate the database (acceptable for dev environments):
+
+```bash
+rm src/backend/instance/database.db
+cd src/backend && python3 init_db.py
+```
+
 ## Usage
 
 1. Register a new account or login

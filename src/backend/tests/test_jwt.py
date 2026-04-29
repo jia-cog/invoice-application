@@ -15,6 +15,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token, decode_token, get_jwt_identity
 from config import Config
+from models import db, User
 
 
 class TestJWTAuthentication(unittest.TestCase):
@@ -24,12 +25,27 @@ class TestJWTAuthentication(unittest.TestCase):
         """Set up test fixtures before each test method."""
         self.app = Flask(__name__)
         self.app.config.from_object(Config)
+        self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+        self.app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        db.init_app(self.app)
         self.jwt = JWTManager(self.app)
+
+        @self.jwt.additional_claims_loader
+        def add_claims_to_access_token(identity):
+            user = User.query.get(int(identity))
+            return {
+                "is_admin": user.is_admin if user else False,
+                "is_authorized": user.is_authorized if user else False,
+            }
+
         self.app_context = self.app.app_context()
         self.app_context.push()
+        db.create_all()
     
     def tearDown(self):
         """Clean up after each test method."""
+        db.session.remove()
+        db.drop_all()
         self.app_context.pop()
     
     def test_create_access_token_with_string_identity(self):
@@ -104,6 +120,78 @@ class TestJWTAuthentication(unittest.TestCase):
         
         with self.assertRaises(Exception):
             decode_token(invalid_token)
+
+    def test_token_contains_is_admin_claim(self):
+        """Test that tokens contain the is_admin claim."""
+        user = User(username="claimuser", email="claim@test.com")
+        user.set_password("password")
+        db.session.add(user)
+        db.session.commit()
+
+        token = create_access_token(identity=str(user.id))
+        decoded = decode_token(token)
+
+        self.assertIn("is_admin", decoded)
+
+    def test_admin_claim_is_false_by_default(self):
+        """Test that new users get is_admin=False by default."""
+        user = User(username="regularuser", email="regular@test.com")
+        user.set_password("password")
+        db.session.add(user)
+        db.session.commit()
+
+        token = create_access_token(identity=str(user.id))
+        decoded = decode_token(token)
+
+        self.assertFalse(decoded["is_admin"])
+
+    def test_admin_claim_is_true_for_admin_user(self):
+        """Test that admin users get is_admin=True in their token."""
+        user = User(username="adminuser", email="admin@test.com", is_admin=True)
+        user.set_password("password")
+        db.session.add(user)
+        db.session.commit()
+
+        token = create_access_token(identity=str(user.id))
+        decoded = decode_token(token)
+
+        self.assertTrue(decoded["is_admin"])
+
+    def test_token_contains_is_authorized_claim(self):
+        """Test that tokens contain the is_authorized claim."""
+        user = User(username="authclaimuser", email="authclaim@test.com")
+        user.set_password("password")
+        db.session.add(user)
+        db.session.commit()
+
+        token = create_access_token(identity=str(user.id))
+        decoded = decode_token(token)
+
+        self.assertIn("is_authorized", decoded)
+
+    def test_authorized_claim_is_true_by_default(self):
+        """Test that new users get is_authorized=True by default."""
+        user = User(username="defaultauthuser", email="defaultauth@test.com")
+        user.set_password("password")
+        db.session.add(user)
+        db.session.commit()
+
+        token = create_access_token(identity=str(user.id))
+        decoded = decode_token(token)
+
+        self.assertTrue(decoded["is_authorized"])
+
+    def test_authorized_claim_is_false_when_revoked(self):
+        """Test that unauthorized users get is_authorized=False in their token."""
+        user = User(username="revokeduser", email="revoked@test.com", is_authorized=False)
+        user.set_password("password")
+        db.session.add(user)
+        db.session.commit()
+
+        token = create_access_token(identity=str(user.id))
+        decoded = decode_token(token)
+
+        self.assertFalse(decoded["is_authorized"])
 
 
 def run_jwt_tests():
