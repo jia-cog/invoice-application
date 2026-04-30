@@ -90,7 +90,24 @@ def get_profile(base_url: str, token: str) -> tuple[Optional[int], dict]:
     return _http_request("GET", url, headers=headers)
 
 
+def _check_environment() -> bool:
+    """Prevent execution in production environments."""
+    env = os.environ.get("ENV", os.environ.get("FLASK_ENV", "development")).lower()
+    if env == "production":
+        print(
+            "ERROR: This bootstrap script cannot be run in a production environment.\n"
+            "It contains hardcoded test credentials intended for development only.\n"
+            "Detected ENV/FLASK_ENV=production. Aborting."
+        )
+        return False
+    print(f"Environment: {env} (non-production)")
+    return True
+
+
 def main() -> int:
+    if not _check_environment():
+        return 1
+
     base_url = os.environ.get("API_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
     print(f"Using API base URL: {base_url}")
