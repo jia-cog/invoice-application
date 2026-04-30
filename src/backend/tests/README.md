@@ -7,9 +7,14 @@ This directory contains all backend tests for the Invoice Application.
 ```
 tests/
 ├── __init__.py          # Makes tests a Python package
-├── README.md           # This file
-├── run_tests.py        # Test runner script
-└── test_jwt.py         # JWT authentication tests
+├── README.md            # This file
+├── run_tests.py         # Test runner script
+├── base.py              # Shared BaseTestCase with in-memory DB setup
+├── test_jwt.py          # JWT authentication tests
+├── test_auth.py         # Auth endpoint tests (register, login, profile)
+├── test_invoices.py     # Invoice CRUD endpoint tests
+├── test_reports.py      # Report & dashboard endpoint tests
+└── test_health.py       # Health check endpoint test
 ```
 
 ## Running Tests
@@ -24,6 +29,10 @@ python3 tests/run_tests.py
 ```bash
 # From the backend directory
 python3 tests/test_jwt.py
+python3 tests/test_auth.py
+python3 tests/test_invoices.py
+python3 tests/test_reports.py
+python3 tests/test_health.py
 ```
 
 ### Run Tests with Python's unittest module
@@ -32,9 +41,15 @@ python3 tests/test_jwt.py
 python3 -m unittest discover tests -v
 ```
 
-## Test Categories
+## Test Files
 
-### JWT Authentication Tests (`test_jwt.py`)
+### `base.py` — Shared Test Base Class
+Provides `BaseTestCase(unittest.TestCase)` used by all endpoint test files. Sets up a Flask app with an **in-memory SQLite database** (`sqlite:///:memory:`) so tests are fast and isolated. Includes helper methods:
+- `register_user(username, email, password, company_name='')` — POST `/api/auth/register`
+- `login_user(username, password)` — POST `/api/auth/login`
+- `get_auth_header(token)` — returns `Authorization: Bearer <token>` headers
+
+### `test_jwt.py` — JWT Authentication Tests
 - Token creation with string identities
 - Token creation with integer IDs (converted to strings)
 - Token decoding and validation
@@ -42,47 +57,33 @@ python3 -m unittest discover tests -v
 - Required JWT claims verification
 - Invalid token handling
 
+### `test_auth.py` — Auth Endpoint Tests
+- **POST /api/auth/register** — success, missing fields, duplicate username/email
+- **POST /api/auth/login** — success, missing fields, wrong password, nonexistent user
+- **GET /api/auth/profile** — success, no token, invalid token
+
+### `test_invoices.py` — Invoice Endpoint Tests
+- **POST /api/invoices/** — success, missing fields, invalid item, no auth, tax calculation
+- **GET /api/invoices/** — empty list, populated list, no auth, user isolation
+- **GET /api/invoices/<id>** — success, not found, ownership check
+- **PUT /api/invoices/<id>** — update fields, update items, not found, ownership, status change
+- **DELETE /api/invoices/<id>** — success, not found, ownership check
+
+### `test_reports.py` — Report Endpoint Tests
+- **GET /api/reports/** — empty, populated, no auth
+- **POST /api/reports/generate** — success, missing fields, no auth, with invoices
+- **GET /api/reports/dashboard** — empty, with data, no auth
+- **DELETE /api/reports/<id>** — success, not found, ownership check
+
+### `test_health.py` — Health Check Test
+- **GET /api/health** — verifies `status: 'healthy'`
+
 ## Adding New Tests
 
 1. Create a new test file following the naming convention `test_*.py`
-2. Import the `unittest` module and create a test class inheriting from `unittest.TestCase`
-3. Add the parent directory to the Python path to import backend modules:
-   ```python
-   import sys
-   import os
-   sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-   ```
-4. Write test methods starting with `test_`
-5. Use `setUp()` and `tearDown()` methods for test fixtures if needed
-
-## Example Test Structure
-
-```python
-import unittest
-import sys
-import os
-
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from your_module import YourClass
-
-class TestYourFeature(unittest.TestCase):
-    def setUp(self):
-        # Set up test fixtures
-        pass
-    
-    def tearDown(self):
-        # Clean up after tests
-        pass
-    
-    def test_your_feature(self):
-        # Your test code here
-        self.assertEqual(expected, actual)
-
-if __name__ == "__main__":
-    unittest.main()
-```
+2. Import `BaseTestCase` from `base` and subclass it
+3. Write test methods starting with `test_`
+4. The base class handles app creation, DB setup/teardown, and provides auth helpers
 
 ## Notes
 
