@@ -1,0 +1,75 @@
+---
+# ============================================================
+# System Dependencies Role
+# ============================================================
+# Installs Python3, Node.js, npm, Nginx, and system packages.
+# ============================================================
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base system packages
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - python3-dev
+      - build-essential
+      - git
+      - curl
+      - nginx
+      - ufw
+      - certbot
+      - python3-certbot-nginx
+      - sqlite3
+      - libsqlite3-dev
+    state: present
+
+- name: Add NodeSource repository GPG key
+  ansible.builtin.apt_key:
+    url: "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key"
+    state: present
+
+- name: Add NodeSource repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://deb.nodesource.com/node_{{ nodejs_version }}.x nodistro main"
+    state: present
+    filename: nodesource
+
+- name: Install Node.js
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+    update_cache: true
+
+- name: Verify Node.js installation
+  ansible.builtin.command: node --version
+  register: node_version
+  changed_when: false
+
+- name: Verify npm installation
+  ansible.builtin.command: npm --version
+  register: npm_version
+  changed_when: false
+
+- name: Display installed versions
+  ansible.builtin.debug:
+    msg: "Node.js {{ node_version.stdout }}, npm {{ npm_version.stdout }}"
+
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ app_group }}"
+    system: true
+    state: present
+
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ app_base_dir }}"
+    create_home: false

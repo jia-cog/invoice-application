@@ -1,0 +1,47 @@
+---
+# ============================================================
+# Webserver Role (Nginx)
+# ============================================================
+# Configures Nginx to serve the React static files and proxy
+# API requests to the Flask/Gunicorn backend.
+# ============================================================
+
+- name: Create log directory for invoice-app
+  ansible.builtin.file:
+    path: /var/log/invoice-app
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Remove default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Deploy Nginx configuration
+  ansible.builtin.template:
+    src: invoice-app.conf.j2
+    dest: /etc/nginx/sites-available/invoice-app.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nginx
+
+- name: Enable Nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/invoice-app.conf
+    dest: /etc/nginx/sites-enabled/invoice-app.conf
+    state: link
+  notify: reload nginx
+
+- name: Validate Nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Enable and start Nginx
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started

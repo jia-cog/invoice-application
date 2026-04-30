@@ -1,0 +1,82 @@
+# Invoice Application - Nginx Configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
+
+upstream invoice_backend {
+    server {{ backend_host }}:{{ backend_port }};
+}
+
+{% if nginx_ssl_enabled %}
+# Redirect HTTP to HTTPS
+server {
+    listen {{ nginx_http_port }};
+    server_name {{ server_domain }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen {{ nginx_https_port }} ssl http2;
+    server_name {{ server_domain }};
+
+    ssl_certificate     {{ nginx_ssl_cert_path }};
+    ssl_certificate_key {{ nginx_ssl_key_path }};
+
+    # SSL hardening
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # Security headers
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+{% else %}
+server {
+    listen {{ nginx_http_port }};
+    server_name {{ server_domain }};
+{% endif %}
+
+    root {{ frontend_build_dir }};
+    index index.html;
+
+    # Gzip compression
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
+    gzip_min_length 256;
+
+    # Proxy API requests to Flask backend
+    location /api/ {
+        proxy_pass http://invoice_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120;
+        proxy_connect_timeout 10;
+    }
+
+    # Serve static files with long cache
+    location /static/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # React SPA - serve index.html for all non-file routes
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Deny access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    access_log /var/log/nginx/invoice-app-access.log;
+    error_log  /var/log/nginx/invoice-app-error.log;
+}

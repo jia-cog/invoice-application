@@ -1,0 +1,90 @@
+---
+# ============================================================
+# Security Role
+# ============================================================
+# Configures firewall, SSL certificates, and CORS security.
+# ============================================================
+
+# --- Firewall Configuration ---
+- name: Enable UFW firewall
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Allow default outgoing traffic
+  community.general.ufw:
+    policy: allow
+    direction: outgoing
+
+- name: Allow configured firewall ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.split('/')[0] }}"
+    proto: "{{ item.split('/')[1] }}"
+  loop: "{{ firewall_allowed_ports }}"
+
+- name: Deny direct access to backend port from outside
+  community.general.ufw:
+    rule: deny
+    port: "{{ backend_port | string }}"
+    proto: tcp
+    direction: in
+
+# --- SSL Certificate Setup ---
+- name: Check if SSL certificate already exists
+  ansible.builtin.stat:
+    path: "{{ nginx_ssl_cert_path }}"
+  register: ssl_cert_stat
+
+- name: Obtain SSL certificate via Let's Encrypt
+  ansible.builtin.command: >
+    certbot certonly --nginx
+    --non-interactive
+    --agree-tos
+    --email {{ letsencrypt_email }}
+    -d {{ server_domain }}
+  when:
+    - nginx_ssl_enabled
+    - not ssl_cert_stat.stat.exists
+  notify: reload nginx
+
+- name: Set up certbot auto-renewal cron job
+  ansible.builtin.cron:
+    name: "certbot-renewal"
+    minute: "0"
+    hour: "3"
+    day: "*"
+    month: "*"
+    weekday: "*"
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+    user: root
+  when: nginx_ssl_enabled
+
+# --- Application Secret Management ---
+- name: Create secrets directory
+  ansible.builtin.file:
+    path: /etc/invoice-app
+    state: directory
+    owner: root
+    group: "{{ app_group }}"
+    mode: "0750"
+
+- name: Deploy application environment file
+  ansible.builtin.template:
+    src: env.production.j2
+    dest: /etc/invoice-app/env.production
+    owner: root
+    group: "{{ app_group }}"
+    mode: "0640"
+  notify: restart invoice-backend
+
+# --- CORS Configuration ---
+- name: Deploy CORS override configuration
+  ansible.builtin.template:
+    src: cors_config.py.j2
+    dest: "{{ backend_dir }}/cors_config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  notify: restart invoice-backend

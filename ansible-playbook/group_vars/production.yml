@@ -1,0 +1,59 @@
+---
+# ============================================================
+# Production Environment Configuration
+# ============================================================
+
+# --- Application settings ---
+app_name: invoice-application
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-application
+app_repo_url: https://github.com/jia-cog/invoice-application.git
+app_repo_branch: main
+
+# --- Backend settings ---
+backend_dir: "{{ app_base_dir }}/src/backend"
+backend_venv_dir: "{{ app_base_dir }}/.venv"
+backend_host: "127.0.0.1"
+backend_port: 5001
+backend_workers: 4
+
+# --- Frontend settings ---
+frontend_dir: "{{ app_base_dir }}/src/frontend"
+frontend_build_dir: "{{ frontend_dir }}/build"
+
+# --- Database settings ---
+database_url: "sqlite:///{{ backend_dir }}/instance/invoice_app.db"
+database_dir: "{{ backend_dir }}/instance"
+
+# --- Security / Secrets ---
+# Override these via Ansible Vault or --extra-vars in production
+jwt_secret_key: "CHANGE_ME_USE_VAULT"
+flask_secret_key: "CHANGE_ME_USE_VAULT"
+
+# --- Domain and URL configuration ---
+server_domain: "invoice.example.com"
+api_base_url: "https://{{ server_domain }}/api"
+frontend_url: "https://{{ server_domain }}"
+
+# --- Nginx settings ---
+nginx_ssl_enabled: true
+nginx_ssl_cert_path: "/etc/letsencrypt/live/{{ server_domain }}/fullchain.pem"
+nginx_ssl_key_path: "/etc/letsencrypt/live/{{ server_domain }}/privkey.pem"
+nginx_http_port: 80
+nginx_https_port: 443
+
+# --- Firewall settings ---
+firewall_allowed_ports:
+  - "22/tcp"    # SSH
+  - "80/tcp"    # HTTP
+  - "443/tcp"   # HTTPS
+
+# --- Node.js settings ---
+nodejs_version: "18"
+
+# --- Python settings ---
+python_version: python3
+
+# --- SSL / Let's Encrypt ---
+letsencrypt_email: "admin@example.com"

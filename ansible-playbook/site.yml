@@ -1,0 +1,72 @@
+---
+# ============================================================
+# Invoice Application - Production Deployment Playbook
+# ============================================================
+#
+# Usage:
+#   ansible-playbook -i inventories/production.ini site.yml
+#
+# With Vault-encrypted secrets:
+#   ansible-playbook -i inventories/production.ini site.yml --ask-vault-pass
+#
+# ============================================================
+
+- name: Deploy Invoice Application
+  hosts: production
+  become: true
+  vars_files:
+    - group_vars/production.yml
+
+  pre_tasks:
+    - name: Validate required secret variables are set
+      ansible.builtin.assert:
+        that:
+          - jwt_secret_key != "CHANGE_ME_USE_VAULT"
+          - flask_secret_key != "CHANGE_ME_USE_VAULT"
+        fail_msg: >
+          Production secrets must be overridden. Use Ansible Vault or
+          --extra-vars to set jwt_secret_key and flask_secret_key.
+
+  roles:
+    - role: system-deps
+      tags: [system, deps]
+
+    - role: security
+      tags: [security]
+
+    - role: database
+      tags: [database, db]
+
+    - role: invoice-app-backend
+      tags: [backend, app]
+
+    - role: invoice-app-frontend
+      tags: [frontend, app]
+
+    - role: webserver
+      tags: [webserver, nginx]
+
+  post_tasks:
+    - name: Verify backend health
+      ansible.builtin.uri:
+        url: "http://{{ backend_host }}:{{ backend_port }}/api/health"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: health_check
+      retries: 5
+      delay: 3
+      until: health_check.status == 200
+      tags: [verify]
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Invoice Application deployed successfully!
+          ============================================
+          Frontend: {{ frontend_url }}
+          API:      {{ api_base_url }}
+          Health:   {{ health_check.json.status | default('unknown') }}
+          ============================================
+      tags: [verify]
