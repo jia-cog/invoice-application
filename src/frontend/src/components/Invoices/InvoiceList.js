@@ -9,7 +9,8 @@ import {
   Trash2, 
   Calendar,
   Search,
-  Filter
+  Filter,
+  Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -18,6 +19,8 @@ const InvoiceList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -39,6 +42,7 @@ const InvoiceList = () => {
       try {
         await invoicesAPI.delete(invoiceId);
         toast.success('Invoice deleted successfully');
+        setSelectedIds(prev => prev.filter(id => id !== invoiceId));
         fetchInvoices();
       } catch (error) {
         toast.error('Failed to delete invoice');
@@ -66,6 +70,71 @@ const InvoiceList = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredInvoices.map(inv => inv.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (invoiceId) => {
+    setSelectedIds(prev =>
+      prev.includes(invoiceId)
+        ? prev.filter(id => id !== invoiceId)
+        : [...prev, invoiceId]
+    );
+  };
+
+  const allSelected = filteredInvoices.length > 0 && filteredInvoices.every(inv => selectedIds.includes(inv.id));
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const filters = {};
+
+      if (selectedIds.length > 0) {
+        filters.invoice_ids = selectedIds;
+      } else {
+        if (statusFilter !== 'all') {
+          filters.status = statusFilter;
+        }
+      }
+
+      const response = await invoicesAPI.export(filters);
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      const disposition = response.headers['content-disposition'];
+      let filename = 'invoices_export.csv';
+      if (disposition) {
+        const match = disposition.match(/filename=(.+)/);
+        if (match) {
+          filename = match[1];
+        }
+      }
+
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      const count = selectedIds.length || filteredInvoices.length;
+      toast.success(`Exported ${count} invoice(s) successfully`);
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        toast.error('No invoices found to export');
+      } else {
+        toast.error('Failed to export invoices');
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -85,10 +154,25 @@ const InvoiceList = () => {
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e293b' }}>
           Invoices
         </h1>
-        <Link to="/invoices/new" className="btn btn-primary">
-          <Plus size={16} />
-          New Invoice
-        </Link>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            onClick={handleExport}
+            disabled={exporting || filteredInvoices.length === 0}
+            className="btn btn-outline"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Download size={16} />
+            {exporting
+              ? 'Exporting...'
+              : selectedIds.length > 0
+                ? `Export Selected (${selectedIds.length})`
+                : 'Export All'}
+          </button>
+          <Link to="/invoices/new" className="btn btn-primary">
+            <Plus size={16} />
+            New Invoice
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -132,6 +216,37 @@ const InvoiceList = () => {
         </div>
       </div>
 
+      {/* Selection info bar */}
+      {selectedIds.length > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.75rem 1rem',
+          marginBottom: '1rem',
+          backgroundColor: '#eff6ff',
+          borderRadius: '0.5rem',
+          border: '1px solid #bfdbfe',
+          fontSize: '0.875rem',
+          color: '#1e40af'
+        }}>
+          <span>{selectedIds.length} invoice(s) selected</span>
+          <button
+            onClick={() => setSelectedIds([])}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#1e40af',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              fontSize: '0.875rem'
+            }}
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       {/* Invoices Table */}
       <div className="card">
         {filteredInvoices.length > 0 ? (
@@ -139,6 +254,15 @@ const InvoiceList = () => {
             <table className="table">
               <thead>
                 <tr>
+                  <th style={{ width: '40px' }}>
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={handleSelectAll}
+                      title="Select all"
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </th>
                   <th>Invoice #</th>
                   <th>Customer</th>
                   <th>Issue Date</th>
@@ -151,6 +275,14 @@ const InvoiceList = () => {
               <tbody>
                 {filteredInvoices.map((invoice) => (
                   <tr key={invoice.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(invoice.id)}
+                        onChange={() => handleSelectOne(invoice.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </td>
                     <td style={{ fontWeight: '500' }}>
                       {invoice.invoice_number}
                     </td>
