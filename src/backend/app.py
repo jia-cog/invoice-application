@@ -39,7 +39,10 @@ def create_app():
     @jwt.additional_claims_loader
     def add_claims_to_access_token(identity):
         user = User.query.get(int(identity))
-        return {"is_admin": user.is_admin if user else False}
+        return {
+            "is_admin": user.is_admin if user else False,
+            "is_authorized": True
+        }
 
     # JWT error handlers
     @jwt.expired_token_loader
