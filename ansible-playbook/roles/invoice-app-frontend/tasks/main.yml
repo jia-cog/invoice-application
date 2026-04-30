@@ -1,0 +1,47 @@
+---
+# ============================================================
+# Invoice App Frontend Role
+# ============================================================
+# Installs npm dependencies and builds the React production
+# bundle with the correct API URL baked in at build time.
+# ============================================================
+
+- name: Install npm dependencies
+  community.general.npm:
+    path: "{{ frontend_dir }}"
+    state: present
+    production: true
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Build React production bundle
+  ansible.builtin.command:
+    cmd: npm run build
+    chdir: "{{ frontend_dir }}"
+  environment:
+    REACT_APP_API_URL: "{{ api_base_url }}"
+    NODE_ENV: production
+    CI: "true"
+  become: true
+  become_user: "{{ app_user }}"
+  register: frontend_build
+  changed_when: frontend_build.rc == 0
+  notify: reload nginx
+
+- name: Verify build directory exists
+  ansible.builtin.stat:
+    path: "{{ frontend_build_dir }}"
+  register: build_dir_stat
+
+- name: Fail if build directory is missing
+  ansible.builtin.fail:
+    msg: "Frontend build failed - {{ frontend_build_dir }} does not exist"
+  when: not build_dir_stat.stat.exists
+
+- name: Set build directory ownership
+  ansible.builtin.file:
+    path: "{{ frontend_build_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: true
+    mode: "0755"

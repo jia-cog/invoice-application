@@ -1,0 +1,27 @@
+[Unit]
+Description=Invoice Application Backend (Gunicorn)
+After=network.target
+
+[Service]
+Type=notify
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ backend_dir }}
+EnvironmentFile=/etc/invoice-app/env.production
+ExecStart={{ backend_venv_dir }}/bin/gunicorn \
+    --bind {{ backend_host }}:{{ backend_port }} \
+    --workers {{ backend_workers }} \
+    --timeout 120 \
+    --access-logfile /var/log/invoice-app/access.log \
+    --error-logfile /var/log/invoice-app/error.log \
+    wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=invoice-backend
+
+[Install]
+WantedBy=multi-user.target

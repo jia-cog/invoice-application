@@ -1,0 +1,10 @@
+---
+- name: reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+
+- name: restart invoice-backend
+  ansible.builtin.systemd:
+    name: invoice-backend
+    state: restarted

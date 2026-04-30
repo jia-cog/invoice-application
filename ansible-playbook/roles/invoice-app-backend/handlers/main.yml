@@ -1,0 +1,9 @@
+---
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart invoice-backend
+  ansible.builtin.systemd:
+    name: invoice-backend
+    state: restarted
