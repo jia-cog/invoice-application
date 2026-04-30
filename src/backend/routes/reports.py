@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_
 from models import db, Invoice, Report, User
+from utils.decorators import admin_required
 import calendar
 
 reports_bp = Blueprint('reports', __name__)
@@ -177,6 +178,20 @@ def get_dashboard_data():
         
         return jsonify(dashboard_data), 200
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@reports_bp.route('/all', methods=['GET'])
+@admin_required
+def get_all_reports():
+    """Admin-only endpoint to retrieve all reports across all users."""
+    try:
+        reports = Report.query.order_by(Report.created_at.desc()).all()
+
+        return jsonify({
+            'reports': [report.to_dict() for report in reports]
+        }), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
