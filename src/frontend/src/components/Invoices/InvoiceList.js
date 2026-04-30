@@ -99,6 +99,9 @@ const InvoiceList = () => {
         if (statusFilter !== 'all') {
           filters.status = statusFilter;
         }
+        if (searchTerm) {
+          filters.search = searchTerm;
+        }
       }
 
       const response = await invoicesAPI.export(filters);

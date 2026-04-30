@@ -626,6 +626,10 @@ paths:
                   format: date
                   description: Filter invoices issued on or before this date
                   example: "2024-12-31"
+                search:
+                  type: string
+                  description: Search by customer name or invoice number (case-insensitive partial match)
+                  example: "Acme"
       responses:
         '200':
           description: CSV file containing exported invoices

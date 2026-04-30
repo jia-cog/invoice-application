@@ -234,6 +234,16 @@ def _build_export_query(user_id, data):
         parsed = datetime.strptime(end_date, '%Y-%m-%d').date()
         query = query.filter(Invoice.issue_date <= parsed)
 
+    search = data.get('search')
+    if search:
+        pattern = f'%{search}%'
+        query = query.filter(
+            db.or_(
+                Invoice.customer_name.ilike(pattern),
+                Invoice.invoice_number.ilike(pattern)
+            )
+        )
+
     return query
 
 
