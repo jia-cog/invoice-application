@@ -1,7 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date
 from models import db, Invoice, InvoiceItem, User
+import csv
+import io
 import uuid
 
 invoices_bp = Blueprint('invoices', __name__)
@@ -172,3 +174,123 @@ def delete_invoice(invoice_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@invoices_bp.route('/export', methods=['POST'])
+@jwt_required()
+def export_invoices():
+    """Export invoices as CSV.
+
+    Supports bulk selection by IDs, status, and date range.
+    """
+    try:
+        user_id = int(get_jwt_identity())
+        data = request.get_json() or {}
+
+        query = _build_export_query(user_id, data)
+        invoices = query.order_by(Invoice.created_at.desc()).all()
+
+        if not invoices:
+            return jsonify(
+                {'error': 'No invoices found matching the criteria'}
+            ), 404
+
+        csv_content = _invoices_to_csv(invoices)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'invoices_export_{timestamp}.csv'
+
+        return Response(
+            csv_content,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': f'attachment; filename={filename}',
+                'Content-Type': 'text/csv'
+            }
+        )
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def _build_export_query(user_id, data):
+    """Build a filtered query for invoice export."""
+    query = Invoice.query.filter_by(user_id=user_id)
+
+    invoice_ids = data.get('invoice_ids')
+    if invoice_ids:
+        query = query.filter(Invoice.id.in_(invoice_ids))
+
+    status = data.get('status')
+    if status and status != 'all':
+        query = query.filter_by(status=status)
+
+    start_date = data.get('start_date')
+    if start_date:
+        parsed = datetime.strptime(start_date, '%Y-%m-%d').date()
+        query = query.filter(Invoice.issue_date >= parsed)
+
+    end_date = data.get('end_date')
+    if end_date:
+        parsed = datetime.strptime(end_date, '%Y-%m-%d').date()
+        query = query.filter(Invoice.issue_date <= parsed)
+
+    search = data.get('search')
+    if search:
+        pattern = f'%{search}%'
+        query = query.filter(
+            db.or_(
+                Invoice.customer_name.ilike(pattern),
+                Invoice.invoice_number.ilike(pattern)
+            )
+        )
+
+    return query
+
+
+def _invoice_base_row(invoice):
+    """Return the common columns for a single invoice row."""
+    return [
+        invoice.invoice_number,
+        invoice.customer_name,
+        invoice.customer_email or '',
+        invoice.customer_address or '',
+        invoice.issue_date.isoformat(),
+        invoice.due_date.isoformat(),
+        invoice.status,
+        f'{invoice.subtotal:.2f}',
+        f'{invoice.tax_rate:.2f}',
+        f'{invoice.tax_amount:.2f}',
+        f'{invoice.total_amount:.2f}',
+        invoice.notes or '',
+    ]
+
+
+def _invoices_to_csv(invoices):
+    """Serialize a list of invoices into a CSV string."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        'Invoice Number', 'Customer Name', 'Customer Email',
+        'Customer Address', 'Issue Date', 'Due Date', 'Status',
+        'Subtotal', 'Tax Rate (%)', 'Tax Amount', 'Total Amount',
+        'Notes', 'Item Description', 'Item Quantity',
+        'Item Unit Price', 'Item Total'
+    ])
+
+    for invoice in invoices:
+        base = _invoice_base_row(invoice)
+        if invoice.items:
+            for item in invoice.items:
+                writer.writerow(base + [
+                    item.description,
+                    f'{item.quantity:.2f}',
+                    f'{item.unit_price:.2f}',
+                    f'{item.total:.2f}'
+                ])
+        else:
+            writer.writerow(base + ['', '', '', ''])
+
+    content = output.getvalue()
+    output.close()
+    return content

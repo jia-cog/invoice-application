@@ -592,6 +592,77 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /invoices/export:
+    post:
+      tags:
+        - Invoices
+      summary: Export invoices as CSV
+      description: Export invoices in CSV format. Supports bulk selection by IDs, status filtering, and date range filtering.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_ids:
+                  type: array
+                  items:
+                    type: integer
+                  description: Specific invoice IDs to export (bulk selection)
+                  example: [1, 2, 3]
+                status:
+                  type: string
+                  enum: [draft, sent, paid, overdue, all]
+                  description: Filter by invoice status
+                  example: "paid"
+                start_date:
+                  type: string
+                  format: date
+                  description: Filter invoices issued on or after this date
+                  example: "2024-01-01"
+                end_date:
+                  type: string
+                  format: date
+                  description: Filter invoices issued on or before this date
+                  example: "2024-12-31"
+                search:
+                  type: string
+                  description: Search by customer name or invoice number (case-insensitive partial match)
+                  example: "Acme"
+      responses:
+        '200':
+          description: CSV file containing exported invoices
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment filename
+              example: "attachment; filename=invoices_export_20240115_103000.csv"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No invoices found matching the criteria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /invoices/{invoice_id}:
     get:
       tags:
