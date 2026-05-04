@@ -16,6 +16,7 @@ import Dashboard from './components/Dashboard/Dashboard';
 import InvoiceList from './components/Invoices/InvoiceList';
 import InvoiceForm from './components/Invoices/InvoiceForm';
 import Reports from './components/Reports/Reports';
+import AdminUsers from './components/Admin/AdminUsers';
 
 function App() {
   return (
@@ -69,7 +70,15 @@ function App() {
                 <Reports />
               </ProtectedRoute>
             } />
-            
+
+            {/* Admin-only routes */}
+            <Route path="/admin/users" element={
+              <ProtectedRoute adminOnly>
+                <Navbar />
+                <AdminUsers />
+              </ProtectedRoute>
+            } />
+
             {/* Default redirect */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

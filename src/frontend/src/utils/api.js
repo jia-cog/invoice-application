@@ -44,6 +44,11 @@ export const authAPI = {
   getProfile: () => api.get('/auth/profile'),
 };
 
+// Admin API (requires is_admin claim)
+export const adminAPI = {
+  listUsers: () => api.get('/auth/admin/users'),
+};
+
 // Invoices API
 export const invoicesAPI = {
   getAll: () => api.get('/invoices/'),
