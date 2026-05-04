@@ -105,6 +105,22 @@ class TestJWTAuthentication(unittest.TestCase):
         with self.assertRaises(Exception):
             decode_token(invalid_token)
 
+    def test_token_includes_is_admin_claim(self):
+        """Tokens minted with additional_claims should include is_admin."""
+        token = create_access_token(
+            identity="42", additional_claims={"is_admin": True}
+        )
+        decoded = decode_token(token)
+        self.assertIn("is_admin", decoded)
+        self.assertTrue(decoded["is_admin"])
+
+        non_admin_token = create_access_token(
+            identity="43", additional_claims={"is_admin": False}
+        )
+        non_admin_decoded = decode_token(non_admin_token)
+        self.assertIn("is_admin", non_admin_decoded)
+        self.assertFalse(non_admin_decoded["is_admin"])
+
 
 def run_jwt_tests():
     """Run all JWT tests and return results."""

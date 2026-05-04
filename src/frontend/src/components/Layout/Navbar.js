@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, FileText, BarChart3, Home } from 'lucide-react';
+import { LogOut, FileText, BarChart3, Home, Shield } from 'lucide-react';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -69,6 +69,16 @@ const Navbar = () => {
               <BarChart3 size={16} />
               Reports
             </Link>
+            {isAdmin && (
+              <Link
+                to="/admin/users"
+                className={`btn ${isActive('/admin/users') ? 'btn-primary' : 'btn-outline'}`}
+                style={{ textDecoration: 'none' }}
+              >
+                <Shield size={16} />
+                Admin
+              </Link>
+            )}
           </div>
         </div>
 

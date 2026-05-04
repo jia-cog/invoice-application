@@ -1,11 +1,25 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from sqlalchemy import inspect, text
 from config import Config
-from models import db
+from models import db, User
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
+
+
+def _ensure_is_admin_column():
+    """Lightweight migration: add is_admin column to existing user tables."""
+    inspector = inspect(db.engine)
+    if 'user' not in inspector.get_table_names():
+        return
+    columns = {col['name'] for col in inspector.get_columns('user')}
+    if 'is_admin' not in columns:
+        with db.engine.begin() as conn:
+            conn.execute(text(
+                'ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0'
+            ))
 
 def create_app():
     app = Flask(__name__)
@@ -50,11 +64,20 @@ def create_app():
     def missing_token_callback(error):
         print(f"JWT Error: Missing token. Error: {error}")
         return jsonify({'error': 'Authorization token is required'}), 401
-    
+
+    @jwt.additional_claims_loader
+    def add_claims_to_access_token(identity):
+        try:
+            user = User.query.get(int(identity))
+        except (TypeError, ValueError):
+            user = None
+        return {'is_admin': user.is_admin if user else False}
+
     # Create tables
     with app.app_context():
         db.create_all()
-    
+        _ensure_is_admin_column()
+
     return app
 
 if __name__ == '__main__':
