@@ -12,9 +12,10 @@ import unittest
 # Add the parent directory to the path to import backend modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import Flask
+from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, decode_token, get_jwt_identity
 from config import Config
+from utils.auth import admin_required
 
 
 class TestJWTAuthentication(unittest.TestCase):
@@ -104,12 +105,98 @@ class TestJWTAuthentication(unittest.TestCase):
         
         with self.assertRaises(Exception):
             decode_token(invalid_token)
+    
+    def test_token_with_is_admin_true_claim(self):
+        """Test that tokens carry an is_admin=True claim when provided."""
+        token = create_access_token(
+            identity="42",
+            additional_claims={"is_admin": True}
+        )
+        decoded = decode_token(token)
+        
+        self.assertIn('is_admin', decoded)
+        self.assertTrue(decoded['is_admin'])
+    
+    def test_token_without_is_admin_claim_defaults_to_false(self):
+        """Test that tokens without is_admin claim are absent or False."""
+        token_with_false = create_access_token(
+            identity="43",
+            additional_claims={"is_admin": False}
+        )
+        decoded_with_false = decode_token(token_with_false)
+        self.assertIn('is_admin', decoded_with_false)
+        self.assertFalse(decoded_with_false['is_admin'])
+        
+        token_no_claim = create_access_token(identity="44")
+        decoded_no_claim = decode_token(token_no_claim)
+        self.assertFalse(decoded_no_claim.get('is_admin', False))
+
+
+class TestAdminRequiredDecorator(unittest.TestCase):
+    """Test cases for the admin_required decorator."""
+    
+    def setUp(self):
+        """Set up a Flask test app with a route protected by admin_required."""
+        self.app = Flask(__name__)
+        self.app.config.from_object(Config)
+        self.jwt = JWTManager(self.app)
+        
+        @self.app.route('/admin-only', methods=['GET'])
+        @admin_required
+        def admin_only():
+            return jsonify({'message': 'admin ok'}), 200
+        
+        self.client = self.app.test_client()
+    
+    def test_admin_required_allows_admin(self):
+        """Admin tokens should be allowed through."""
+        with self.app.app_context():
+            token = create_access_token(
+                identity="1",
+                additional_claims={"is_admin": True}
+            )
+        
+        response = self.client.get(
+            '/admin-only',
+            headers={'Authorization': f'Bearer {token}'}
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {'message': 'admin ok'})
+    
+    def test_admin_required_rejects_non_admin(self):
+        """Non-admin tokens should receive a 403."""
+        with self.app.app_context():
+            token = create_access_token(
+                identity="2",
+                additional_claims={"is_admin": False}
+            )
+        
+        response = self.client.get(
+            '/admin-only',
+            headers={'Authorization': f'Bearer {token}'}
+        )
+        
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            response.get_json(),
+            {'error': 'Admin access required'}
+        )
+    
+    def test_admin_required_rejects_missing_token(self):
+        """Requests without a token should not pass admin_required."""
+        response = self.client.get('/admin-only')
+        
+        self.assertEqual(response.status_code, 401)
 
 
 def run_jwt_tests():
     """Run all JWT tests and return results."""
     loader = unittest.TestLoader()
-    suite = loader.loadTestsFromTestCase(TestJWTAuthentication)
+    suite = unittest.TestSuite([
+        loader.loadTestsFromTestCase(TestJWTAuthentication),
+        loader.loadTestsFromTestCase(TestAdminRequiredDecorator),
+    ])
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     return result.wasSuccessful()
