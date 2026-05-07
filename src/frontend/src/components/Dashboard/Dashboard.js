@@ -9,16 +9,20 @@ import {
   Clock, 
   Plus,
   Eye,
-  Calendar
+  Calendar,
+  Activity
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
+  const [usageData, setUsageData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchUsageData();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -29,6 +33,15 @@ const Dashboard = () => {
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsageData = async () => {
+    try {
+      const response = await reportsAPI.getUsageAnalytics(60);
+      setUsageData(response.data);
+    } catch (error) {
+      // Usage data is supplementary; don't block the dashboard
     }
   };
 
@@ -245,6 +258,75 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Endpoint Usage Analytics */}
+      {usageData && usageData.total_requests > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: '1.5rem',
+          marginTop: '2rem'
+        }}>
+          <div className="card">
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#1e293b',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <Activity size={20} />
+              Endpoint Usage (Last 60 Days)
+            </h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={usageData.endpoint_breakdown.slice(0, 10)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="endpoint"
+                  tick={{ fontSize: 11 }}
+                  interval={0}
+                  angle={-30}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" fill="#3b82f6" name="Requests" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="card">
+            <h2 style={{
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              color: '#1e293b',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <TrendingUp size={20} />
+              Daily Request Trends
+            </h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={usageData.daily_trends.slice(-30)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11 }}
+                  interval={4}
+                />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="total" fill="#10b981" name="Requests" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

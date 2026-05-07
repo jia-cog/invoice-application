@@ -23,6 +23,7 @@ def init_database():
         print("- users")
         print("- invoices")
         print("- invoice_items")
+        print("- request_logs")
         print("- reports")
 
 if __name__ == '__main__':
