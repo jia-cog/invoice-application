@@ -9,16 +9,23 @@ import {
   TrendingUp,
   DollarSign,
   FileText,
-  Users
+  Users,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Mail
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+
+const QUALITY_COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [qualityData, setQualityData] = useState(null);
   const [reportForm, setReportForm] = useState({
     report_type: 'monthly',
     start_date: '',
@@ -27,6 +34,7 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReports();
+    fetchQualityMetrics();
     setDefaultDates();
   }, []);
 
@@ -50,6 +58,15 @@ const Reports = () => {
       toast.error('Failed to load reports');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQualityMetrics = async () => {
+    try {
+      const response = await reportsAPI.getQualityMetrics(60);
+      setQualityData(response.data);
+    } catch (error) {
+      // Quality metrics are supplementary
     }
   };
 
@@ -253,6 +270,173 @@ const Reports = () => {
           )}
         </div>
       </div>
+
+      {/* Invoice Quality Metrics */}
+      {qualityData && qualityData.total_invoices > 0 && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: '600',
+            color: '#1e293b',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <AlertTriangle size={20} />
+            Invoice Quality Metrics (Last {qualityData.period_days} Days)
+          </h3>
+
+          {/* Quality Rate Cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #fecaca',
+              backgroundColor: '#fef2f2'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <XCircle size={16} color="#ef4444" />
+                <span style={{ fontSize: '0.75rem', color: '#991b1b' }}>Overdue Rate</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ef4444' }}>
+                {qualityData.overdue_rate}%
+              </div>
+            </div>
+
+            <div style={{
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #fed7aa',
+              backgroundColor: '#fff7ed'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <FileText size={16} color="#f59e0b" />
+                <span style={{ fontSize: '0.75rem', color: '#92400e' }}>Draft Stuck Rate</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>
+                {qualityData.draft_stuck_rate}%
+              </div>
+            </div>
+
+            <div style={{
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #bbf7d0',
+              backgroundColor: '#f0fdf4'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <CheckCircle size={16} color="#10b981" />
+                <span style={{ fontSize: '0.75rem', color: '#065f46' }}>Draft-to-Paid</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>
+                {qualityData.draft_to_paid_rate}%
+              </div>
+            </div>
+
+            <div style={{
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #bfdbfe',
+              backgroundColor: '#eff6ff'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <Mail size={16} color="#3b82f6" />
+                <span style={{ fontSize: '0.75rem', color: '#1e40af' }}>Missing Email</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#3b82f6' }}>
+                {qualityData.missing_email_rate}%
+              </div>
+            </div>
+
+            <div style={{
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e9d5ff',
+              backgroundColor: '#faf5ff'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <FileText size={16} color="#8b5cf6" />
+                <span style={{ fontSize: '0.75rem', color: '#5b21b6' }}>Missing Address</span>
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#8b5cf6' }}>
+                {qualityData.missing_address_rate}%
+              </div>
+            </div>
+          </div>
+
+          {/* Quality Charts */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+            gap: '2rem'
+          }}>
+            {/* Invoice Generation Trends */}
+            {qualityData.daily_trends && qualityData.daily_trends.length > 0 && (
+              <div>
+                <h4 style={{
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '1rem'
+                }}>
+                  Invoice Generation Trends
+                </h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={qualityData.daily_trends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} interval={4} />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} dot={false} name="Invoices Created" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Status Distribution */}
+            {qualityData.status_distribution && Object.keys(qualityData.status_distribution).length > 0 && (
+              <div>
+                <h4 style={{
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  marginBottom: '1rem'
+                }}>
+                  Status Distribution
+                </h4>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(qualityData.status_distribution).map(([key, value]) => ({
+                        name: key.charAt(0).toUpperCase() + key.slice(1),
+                        value
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {Object.entries(qualityData.status_distribution).map((entry, index) => (
+                        <Cell key={`quality-cell-${index}`} fill={QUALITY_COLORS[index % QUALITY_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Report Details */}
       {selectedReport && (

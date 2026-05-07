@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_
-from models import db, Invoice, Report, User
+from models import db, Invoice, Report, User, RequestLog
 import calendar
 
 reports_bp = Blueprint('reports', __name__)
@@ -197,4 +197,138 @@ def delete_report(report_id):
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@reports_bp.route('/usage-analytics', methods=['GET'])
+@jwt_required()
+def get_usage_analytics():
+    try:
+        days = request.args.get('days', 60, type=int)
+        start_date = datetime.utcnow() - timedelta(days=days)
+
+        logs = RequestLog.query.filter(
+            RequestLog.timestamp >= start_date
+        ).all()
+
+        endpoint_counts = {}
+        daily_counts = {}
+        method_counts = {}
+        status_counts = {}
+
+        for log in logs:
+            ep = log.endpoint
+            endpoint_counts[ep] = endpoint_counts.get(ep, 0) + 1
+
+            day_key = log.timestamp.strftime('%Y-%m-%d')
+            if day_key not in daily_counts:
+                daily_counts[day_key] = {}
+            daily_counts[day_key][ep] = daily_counts[day_key].get(ep, 0) + 1
+
+            method_counts[log.method] = method_counts.get(log.method, 0) + 1
+
+            sc = str(log.status_code)
+            status_counts[sc] = status_counts.get(sc, 0) + 1
+
+        endpoint_data = sorted(
+            [{'endpoint': k, 'count': v} for k, v in endpoint_counts.items()],
+            key=lambda x: x['count'],
+            reverse=True
+        )
+
+        daily_data = sorted(
+            [{'date': k, 'total': sum(v.values()), 'endpoints': v}
+             for k, v in daily_counts.items()],
+            key=lambda x: x['date']
+        )
+
+        return jsonify({
+            'period_days': days,
+            'total_requests': len(logs),
+            'endpoint_breakdown': endpoint_data,
+            'daily_trends': daily_data,
+            'method_breakdown': method_counts,
+            'status_breakdown': status_counts
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@reports_bp.route('/invoice-quality', methods=['GET'])
+@jwt_required()
+def get_quality_metrics():
+    try:
+        user_id = int(get_jwt_identity())
+        days = request.args.get('days', 60, type=int)
+        start_date = datetime.utcnow() - timedelta(days=days)
+
+        invoices = Invoice.query.filter(
+            and_(
+                Invoice.user_id == user_id,
+                Invoice.created_at >= start_date
+            )
+        ).all()
+
+        total = len(invoices)
+        if total == 0:
+            return jsonify({
+                'period_days': days,
+                'total_invoices': 0,
+                'overdue_rate': 0,
+                'draft_stuck_rate': 0,
+                'missing_email_rate': 0,
+                'missing_address_rate': 0,
+                'missing_notes_rate': 0,
+                'draft_to_paid_rate': 0,
+                'daily_trends': [],
+                'status_distribution': {}
+            }), 200
+
+        today = date.today()
+        overdue_count = sum(
+            1 for inv in invoices
+            if inv.status == 'overdue' or
+            (inv.due_date and inv.due_date < today and inv.status not in ('paid',))
+        )
+        draft_stuck_count = sum(
+            1 for inv in invoices if inv.status == 'draft'
+        )
+        missing_email = sum(
+            1 for inv in invoices if not inv.customer_email
+        )
+        missing_address = sum(
+            1 for inv in invoices if not inv.customer_address
+        )
+        missing_notes = sum(
+            1 for inv in invoices if not inv.notes
+        )
+        paid_count = sum(
+            1 for inv in invoices if inv.status == 'paid'
+        )
+
+        daily_creation = {}
+        status_dist = {}
+        for inv in invoices:
+            day_key = inv.created_at.strftime('%Y-%m-%d')
+            daily_creation[day_key] = daily_creation.get(day_key, 0) + 1
+            status_dist[inv.status] = status_dist.get(inv.status, 0) + 1
+
+        daily_trends = sorted(
+            [{'date': k, 'count': v} for k, v in daily_creation.items()],
+            key=lambda x: x['date']
+        )
+
+        return jsonify({
+            'period_days': days,
+            'total_invoices': total,
+            'overdue_rate': round(overdue_count / total * 100, 1),
+            'draft_stuck_rate': round(draft_stuck_count / total * 100, 1),
+            'missing_email_rate': round(missing_email / total * 100, 1),
+            'missing_address_rate': round(missing_address / total * 100, 1),
+            'missing_notes_rate': round(missing_notes / total * 100, 1),
+            'draft_to_paid_rate': round(paid_count / total * 100, 1),
+            'daily_trends': daily_trends,
+            'status_distribution': status_dist
+        }), 200
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
