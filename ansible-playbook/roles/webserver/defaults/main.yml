@@ -1,0 +1,8 @@
+---
+nginx_server_name: "{{ inventory_hostname }}"
+nginx_ssl_enabled: true
+nginx_ssl_cert_path: "/etc/letsencrypt/live/{{ inventory_hostname }}/fullchain.pem"
+nginx_ssl_key_path: "/etc/letsencrypt/live/{{ inventory_hostname }}/privkey.pem"
+backend_host: "127.0.0.1"
+backend_port: 5001
+frontend_build_dir: "/opt/invoice-app/src/frontend/build"

@@ -1,0 +1,122 @@
+---
+# =============================================================================
+# Security Role - Firewall, SSL, CORS, and secret management
+# =============================================================================
+
+# --- Firewall Configuration (UFW) ---
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+  become: true
+
+- name: Set UFW default deny incoming
+  community.general.ufw:
+    direction: incoming
+    default: deny
+  become: true
+
+- name: Set UFW default allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+  become: true
+
+- name: Allow required ports through firewall
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port | string }}"
+    proto: "{{ item.proto }}"
+  loop: "{{ firewall_allowed_ports }}"
+  become: true
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  become: true
+
+# --- SSL Certificate Setup ---
+
+- name: Check if SSL certificate already exists
+  ansible.builtin.stat:
+    path: "{{ nginx_ssl_cert_path }}"
+  register: security_ssl_cert
+  become: true
+  when: nginx_ssl_enabled
+
+- name: Obtain SSL certificate with Certbot
+  ansible.builtin.command:
+    cmd: >
+      certbot certonly --nginx
+      -d {{ frontend_domain }}
+      --non-interactive
+      --agree-tos
+      --email {{ certbot_email | default('admin@' + frontend_domain) }}
+  become: true
+  changed_when: true
+  when:
+    - nginx_ssl_enabled
+    - not security_ssl_cert.stat.exists
+  notify: Reload nginx
+
+- name: Set up Certbot auto-renewal cron job
+  ansible.builtin.cron:
+    name: "Certbot auto-renewal"
+    minute: "30"
+    hour: "3"
+    day: "*/7"
+    job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+    user: root
+  become: true
+  when: nginx_ssl_enabled
+
+# --- CORS Security ---
+
+- name: Deploy production CORS configuration override
+  ansible.builtin.template:
+    src: cors_config.py.j2
+    dest: "{{ app_backend_dir }}/cors_config.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  become: true
+  notify: Restart invoice backend
+
+# --- Secret Management ---
+
+- name: Ensure .env file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ app_backend_dir }}/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  become: true
+
+- name: Ensure database file has restrictive permissions
+  ansible.builtin.file:
+    path: "{{ database_dir }}/invoice_app.db"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  become: true
+  failed_when: false
+
+# --- Additional Security Hardening ---
+
+- name: Disable Nginx server tokens
+  ansible.builtin.lineinfile:
+    path: /etc/nginx/nginx.conf
+    regexp: '^\s*#?\s*server_tokens'
+    line: "\tserver_tokens off;"
+    insertafter: 'http {'
+  become: true
+  notify: Reload nginx
+
+- name: Set secure file permissions on application directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+  become: true

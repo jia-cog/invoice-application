@@ -1,0 +1,10 @@
+"""WSGI entry point for the Invoice Application."""
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+from app import create_app
+
+application = create_app()

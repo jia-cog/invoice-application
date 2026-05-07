@@ -1,0 +1,81 @@
+---
+# =============================================================================
+# Invoice Application - Main Deployment Playbook
+# =============================================================================
+#
+# Deploys the full-stack invoice application (Flask + React) to production.
+#
+# Usage:
+#   ansible-playbook -i inventories/production.ini site.yml
+#
+# With Ansible Vault for secrets:
+#   ansible-playbook -i inventories/production.ini site.yml --ask-vault-pass
+#
+# Dry run:
+#   ansible-playbook -i inventories/production.ini site.yml --check
+#
+# =============================================================================
+
+- name: Deploy Invoice Application
+  hosts: webservers
+  become: true
+  vars_files:
+    - group_vars/production.yml
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - jwt_secret_key != 'CHANGE-ME-use-ansible-vault-in-production'
+          - flask_secret_key != 'CHANGE-ME-use-ansible-vault-in-production'
+        fail_msg: >
+          Production secrets must be set! Use Ansible Vault to encrypt
+          secrets in group_vars/production.yml. Run:
+          ansible-vault encrypt_string 'your-secret' --name 'vault_jwt_secret_key'
+        quiet: true
+      tags: [validate]
+
+    - name: Create application group
+      ansible.builtin.group:
+        name: "{{ app_group }}"
+        system: true
+      become: true
+
+  roles:
+    - role: system-deps
+      tags: [system, deps]
+
+    - role: invoice-app-backend
+      tags: [backend, app]
+
+    - role: database
+      tags: [database, db]
+
+    - role: invoice-app-frontend
+      tags: [frontend, app]
+
+    - role: webserver
+      tags: [webserver, nginx]
+
+    - role: security
+      tags: [security, ssl, firewall]
+
+  post_tasks:
+    - name: Verify backend health check
+      ansible.builtin.uri:
+        url: "http://{{ backend_host }}:{{ backend_port }}/api/health"
+        return_content: true
+        status_code: 200
+      register: health_check
+      retries: 5
+      delay: 3
+      until: health_check.status == 200
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "=== Invoice Application Deployment Complete ==="
+          - "Backend: http://{{ backend_host }}:{{ backend_port }}"
+          - "Frontend: https://{{ frontend_domain }}"
+          - "Health Check: {{ health_check.json.status | default('unknown') }}"
+          - "================================================"

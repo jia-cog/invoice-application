@@ -1,0 +1,93 @@
+---
+# =============================================================================
+# Database Role - SQLite database setup with safety guards
+# =============================================================================
+
+- name: Create database instance directory
+  ansible.builtin.file:
+    path: "{{ database_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  become: true
+
+- name: Create log directory
+  ansible.builtin.file:
+    path: /var/log/invoice-app
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  become: true
+
+- name: Check if database already exists
+  ansible.builtin.stat:
+    path: "{{ database_dir }}/invoice_app.db"
+  register: database_db_file
+  become: true
+
+- name: Deploy safe database initialization script
+  ansible.builtin.template:
+    src: safe_init_db.py.j2
+    dest: "{{ app_backend_dir }}/safe_init_db.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  become: true
+
+- name: Initialize database (first-time provisioning only)
+  ansible.builtin.command:
+    cmd: "{{ app_venv_dir }}/bin/python {{ app_backend_dir }}/safe_init_db.py"
+    chdir: "{{ app_backend_dir }}"
+  environment:
+    DATABASE_URL: "{{ database_url }}"
+    JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+    SECRET_KEY: "{{ flask_secret_key }}"
+  become: true
+  become_user: "{{ app_user }}"
+  when: not database_db_file.stat.exists
+  changed_when: true
+  register: database_init_result
+
+- name: Display database initialization result
+  ansible.builtin.debug:
+    msg: "{{ database_init_result.stdout_lines | default(['Database already exists - skipping initialization']) }}"
+
+- name: Set correct permissions on database file
+  ansible.builtin.file:
+    path: "{{ database_dir }}/invoice_app.db"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  become: true
+  when: database_db_file.stat.exists or (database_init_result is defined and database_init_result.changed)
+
+- name: Create database backup directory
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/backups"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0750"
+  become: true
+
+- name: Backup existing database before deployment (if exists)
+  ansible.builtin.copy:
+    src: "{{ database_dir }}/invoice_app.db"
+    dest: "{{ app_base_dir }}/backups/invoice_app.db.{{ ansible_date_time.iso8601_basic_short }}"
+    remote_src: true
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  become: true
+  when: database_db_file.stat.exists
+
+- name: Deploy database backup cron job
+  ansible.builtin.cron:
+    name: "Invoice app database backup"
+    minute: "0"
+    hour: "2"
+    job: "cp {{ database_dir }}/invoice_app.db {{ app_base_dir }}/backups/invoice_app.db.$(date +\\%Y\\%m\\%d) 2>/dev/null"
+    user: "{{ app_user }}"
+  become: true

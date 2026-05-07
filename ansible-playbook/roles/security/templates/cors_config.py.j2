@@ -1,0 +1,8 @@
+"""
+Production CORS configuration for the Invoice Application.
+Restricts allowed origins to the production frontend domain only.
+
+Managed by Ansible - Do not edit manually.
+"""
+
+CORS_ORIGINS = ['{{ cors_allowed_origins }}']

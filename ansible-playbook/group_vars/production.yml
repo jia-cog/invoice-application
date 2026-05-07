@@ -1,0 +1,54 @@
+---
+# =============================================================================
+# Invoice Application - Production Environment Configuration
+# =============================================================================
+
+# Application settings
+app_name: invoice-app
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-app
+app_backend_dir: "{{ app_base_dir }}/src/backend"
+app_frontend_dir: "{{ app_base_dir }}/src/frontend"
+app_venv_dir: "{{ app_base_dir }}/.venv"
+app_repo_url: "https://github.com/jia-cog/invoice-application.git"
+app_repo_branch: master
+
+# Database configuration
+database_url: "sqlite:///{{ app_backend_dir }}/instance/invoice_app.db"
+database_dir: "{{ app_backend_dir }}/instance"
+
+# Flask configuration
+flask_secret_key: "{{ vault_flask_secret_key | default('CHANGE-ME-use-ansible-vault-in-production') }}"
+jwt_secret_key: "{{ vault_jwt_secret_key | default('CHANGE-ME-use-ansible-vault-in-production') }}"
+flask_env: production
+flask_debug: "false"
+
+# Backend service configuration
+backend_host: "127.0.0.1"
+backend_port: 5001
+backend_workers: 3
+
+# Frontend configuration
+frontend_domain: "{{ inventory_hostname }}"
+frontend_api_url: "https://{{ frontend_domain }}/api"
+react_app_api_url: "{{ frontend_api_url }}"
+frontend_build_dir: "{{ app_frontend_dir }}/build"
+
+# Nginx configuration
+nginx_server_name: "{{ frontend_domain }}"
+nginx_ssl_enabled: true
+nginx_ssl_cert_path: "/etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem"
+nginx_ssl_key_path: "/etc/letsencrypt/live/{{ frontend_domain }}/privkey.pem"
+
+# Firewall configuration
+firewall_allowed_ports:
+  - { port: 22, proto: tcp }
+  - { port: 80, proto: tcp }
+  - { port: 443, proto: tcp }
+
+# Node.js version
+nodejs_version: "18"
+
+# CORS configuration
+cors_allowed_origins: "https://{{ frontend_domain }}"

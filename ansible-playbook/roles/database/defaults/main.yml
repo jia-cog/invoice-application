@@ -1,0 +1,8 @@
+---
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-app
+app_backend_dir: "{{ app_base_dir }}/src/backend"
+app_venv_dir: "{{ app_base_dir }}/.venv"
+database_dir: "{{ app_backend_dir }}/instance"
+database_url: "sqlite:///{{ app_backend_dir }}/instance/invoice_app.db"

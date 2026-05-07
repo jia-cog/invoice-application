@@ -1,0 +1,8 @@
+---
+# Ansible-lint configuration for Invoice Application playbook
+
+skip_list:
+  # Shared variables (app_user, app_base_dir, etc.) are intentionally defined
+  # in group_vars/production.yml and used across multiple roles. The role-prefix
+  # convention doesn't apply to these cross-cutting variables.
+  - var-naming[no-role-prefix]
