@@ -1,0 +1,43 @@
+---
+# =============================================================================
+# Webserver Role - Nginx configuration for reverse proxy and static serving
+# =============================================================================
+
+- name: Remove default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  become: true
+  notify: Reload nginx
+
+- name: Deploy Nginx configuration for invoice app
+  ansible.builtin.template:
+    src: invoice-app.conf.j2
+    dest: /etc/nginx/sites-available/invoice-app.conf
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Reload nginx
+
+- name: Enable invoice app Nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/invoice-app.conf
+    dest: /etc/nginx/sites-enabled/invoice-app.conf
+    state: link
+  become: true
+  notify: Reload nginx
+
+- name: Test Nginx configuration
+  ansible.builtin.command:
+    cmd: nginx -t
+  become: true
+  register: webserver_nginx_test
+  changed_when: false
+
+- name: Ensure Nginx is running
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+  become: true

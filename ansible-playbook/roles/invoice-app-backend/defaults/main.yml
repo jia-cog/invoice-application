@@ -1,0 +1,12 @@
+---
+app_name: invoice-app
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-app
+app_backend_dir: "{{ app_base_dir }}/src/backend"
+app_venv_dir: "{{ app_base_dir }}/.venv"
+backend_host: "127.0.0.1"
+backend_port: 5001
+backend_workers: 3
+flask_env: production
+flask_debug: "false"

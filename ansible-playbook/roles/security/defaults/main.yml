@@ -1,0 +1,15 @@
+---
+app_user: invoice
+app_group: invoice
+app_base_dir: /opt/invoice-app
+app_backend_dir: "{{ app_base_dir }}/src/backend"
+database_dir: "{{ app_backend_dir }}/instance"
+frontend_domain: "{{ inventory_hostname }}"
+cors_allowed_origins: "https://{{ frontend_domain }}"
+nginx_ssl_enabled: true
+nginx_ssl_cert_path: "/etc/letsencrypt/live/{{ frontend_domain }}/fullchain.pem"
+certbot_email: "admin@{{ frontend_domain }}"
+firewall_allowed_ports:
+  - { port: 22, proto: tcp }
+  - { port: 80, proto: tcp }
+  - { port: 443, proto: tcp }
