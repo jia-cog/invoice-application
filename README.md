@@ -87,3 +87,20 @@ invoice-application/
 2. Create invoices with customer details and line items
 3. View and manage your invoices
 4. Generate reports from your invoice data
+
+## Database Migrations
+
+The backend uses `db.create_all()` in `app.py` to create tables on startup, which only adds new tables — it does not alter existing ones. When schema changes are made to existing tables (e.g. adding the `is_admin` column to `User`), you must update existing development databases manually.
+
+To apply the `is_admin` column to an existing SQLite database, choose one of:
+
+- **Drop and recreate the database** (acceptable for dev — destroys all data):
+  ```bash
+  rm src/backend/instance/database.db
+  cd src/backend && python3 init_db.py
+  ```
+- **Run a manual `ALTER TABLE`** on the existing SQLite DB:
+  ```bash
+  sqlite3 src/backend/instance/database.db \
+    "ALTER TABLE user ADD COLUMN is_admin BOOLEAN DEFAULT 0 NOT NULL;"
+  ```
