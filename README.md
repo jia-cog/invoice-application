@@ -81,6 +81,18 @@ invoice-application/
 - `POST /api/invoices` - Create new invoice
 - `GET /api/reports` - Generate reports
 
+## Database Migrations
+
+### Adding the `is_admin` column
+
+The `User` model includes an `is_admin` boolean column. If you have an existing `invoice_app.db` file, apply one of the following:
+
+- **Option A** (dev only): Delete the existing `invoice_app.db` file and let `db.create_all()` recreate it.
+- **Option B**: Run a manual migration:
+  ```sql
+  ALTER TABLE user ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0;
+  ```
+
 ## Usage
 
 1. Register a new account or login
