@@ -1,0 +1,18 @@
+services:
+  invoice-backend:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+    ports:
+      - "5001:5001"
+
+  invoice-frontend:
+    build:
+      context: src/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - invoice-backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:5001/api
