@@ -8,7 +8,7 @@ def migrate():
     db_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "instance",
-        "invoices.db",
+        "invoice_app.db",
     )
     if not os.path.exists(db_path):
         print(f"Database not found at {db_path}. Skipping migration — "
