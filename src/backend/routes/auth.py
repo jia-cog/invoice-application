@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from models import db, User
+from utils.decorators import admin_required
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -34,7 +35,10 @@ def register():
         db.session.commit()
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={"is_admin": user.is_admin}
+        )
         
         return jsonify({
             'message': 'User created successfully',
@@ -61,7 +65,10 @@ def login():
             return jsonify({'error': 'Invalid credentials'}), 401
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={"is_admin": user.is_admin}
+        )
         
         return jsonify({
             'message': 'Login successful',
@@ -84,5 +91,14 @@ def get_profile():
         
         return jsonify({'user': user.to_dict()}), 200
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@auth_bp.route('/users', methods=['GET'])
+@admin_required()
+def list_users():
+    try:
+        users = User.query.order_by(User.created_at.desc()).all()
+        return jsonify({'users': [u.to_dict() for u in users]}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
