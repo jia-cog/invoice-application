@@ -51,6 +51,7 @@ export const invoicesAPI = {
   create: (invoiceData) => api.post('/invoices/', invoiceData),
   update: (id, invoiceData) => api.put(`/invoices/${id}`, invoiceData),
   delete: (id) => api.delete(`/invoices/${id}`),
+  downloadAll: () => api.get('/invoices/download', { responseType: 'blob' }),
 };
 
 // Reports API
