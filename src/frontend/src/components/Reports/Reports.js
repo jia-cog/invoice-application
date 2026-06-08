@@ -77,7 +77,7 @@ const Reports = () => {
     }));
   };
 
-  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
+  const COLORS = ['#ee0000', '#10b981', '#f59e0b', '#333333'];
 
   if (loading) {
     return (
@@ -292,7 +292,7 @@ const Reports = () => {
                 marginBottom: '2rem'
               }}>
                 <div style={{
-                  background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  background: 'linear-gradient(135deg, #ee0000, #cc0000)',
                   color: 'white',
                   padding: '1.5rem',
                   borderRadius: '0.5rem'
@@ -376,7 +376,7 @@ const Reports = () => {
                         <XAxis dataKey="month" />
                         <YAxis />
                         <Tooltip formatter={(value) => [`$${value.toFixed(2)}`, 'Revenue']} />
-                        <Bar dataKey="revenue" fill="#3b82f6" />
+                        <Bar dataKey="revenue" fill="#ee0000" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>

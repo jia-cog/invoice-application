@@ -90,11 +90,11 @@ const Dashboard = () => {
               </p>
             </div>
             <div style={{
-              backgroundColor: '#dbeafe',
+              backgroundColor: '#fce4e4',
               padding: '0.75rem',
               borderRadius: '0.5rem'
             }}>
-              <FileText size={24} color="#3b82f6" />
+              <FileText size={24} color="#ee0000" />
             </div>
           </div>
         </div>
