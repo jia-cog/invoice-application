@@ -1,8 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date
 from models import db, Invoice, InvoiceItem, User
 import uuid
+import csv
+import io
 
 invoices_bp = Blueprint('invoices', __name__)
 
@@ -17,6 +19,59 @@ def get_invoices():
             'invoices': [invoice.to_dict() for invoice in invoices]
         }), 200
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@invoices_bp.route('/download', methods=['GET'])
+@jwt_required()
+def download_invoices():
+    try:
+        user_id = int(get_jwt_identity())
+        invoices = Invoice.query.filter_by(user_id=user_id).order_by(Invoice.created_at.desc()).all()
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        writer.writerow([
+            'Invoice Number', 'Customer Name', 'Customer Email',
+            'Customer Address', 'Issue Date', 'Due Date', 'Status',
+            'Subtotal', 'Tax Rate (%)', 'Tax Amount', 'Total Amount',
+            'Notes', 'Items'
+        ])
+
+        for invoice in invoices:
+            items_str = '; '.join(
+                f"{item.description} (qty: {item.quantity}, "
+                f"unit: ${item.unit_price:.2f}, total: ${item.total:.2f})"
+                for item in invoice.items
+            )
+            writer.writerow([
+                invoice.invoice_number,
+                invoice.customer_name,
+                invoice.customer_email or '',
+                invoice.customer_address or '',
+                invoice.issue_date.isoformat(),
+                invoice.due_date.isoformat(),
+                invoice.status,
+                f"{invoice.subtotal:.2f}",
+                f"{invoice.tax_rate:.2f}",
+                f"{invoice.tax_amount:.2f}",
+                f"{invoice.total_amount:.2f}",
+                invoice.notes or '',
+                items_str
+            ])
+
+        csv_data = output.getvalue()
+        output.close()
+
+        return Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': 'attachment; filename="invoices.csv"'
+            }
+        )
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

@@ -9,7 +9,8 @@ import {
   Trash2, 
   Calendar,
   Search,
-  Filter
+  Filter,
+  Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -31,6 +32,23 @@ const InvoiceList = () => {
       toast.error('Failed to load invoices');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    try {
+      const response = await invoicesAPI.downloadAll();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'invoices.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Invoices downloaded successfully');
+    } catch (error) {
+      toast.error('Failed to download invoices');
     }
   };
 
@@ -85,10 +103,20 @@ const InvoiceList = () => {
         <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#1e293b' }}>
           Invoices
         </h1>
-        <Link to="/invoices/new" className="btn btn-primary">
-          <Plus size={16} />
-          New Invoice
-        </Link>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            onClick={handleDownloadAll}
+            className="btn btn-outline"
+            disabled={invoices.length === 0}
+          >
+            <Download size={16} />
+            Download All
+          </button>
+          <Link to="/invoices/new" className="btn btn-primary">
+            <Plus size={16} />
+            New Invoice
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

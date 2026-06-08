@@ -61,7 +61,7 @@ const Register = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'linear-gradient(135deg, #000000 0%, #333333 100%)',
       padding: '1rem'
     }}>
       <div className="card" style={{
@@ -192,7 +192,7 @@ const Register = () => {
             <Link
               to="/login"
               style={{
-                color: '#3b82f6',
+                color: '#ee0000',
                 textDecoration: 'none',
                 fontWeight: '500'
               }}
