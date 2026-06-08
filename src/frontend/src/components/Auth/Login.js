@@ -27,13 +27,13 @@ const Login = () => {
     try {
       const result = await login(formData);
       if (result.success) {
-        toast.success('Login successful!');
+        toast.success('Connexion réussie !');
         navigate('/dashboard');
       } else {
         toast.error(result.error);
       }
     } catch (error) {
-      toast.error('An error occurred during login');
+      toast.error('Une erreur est survenue lors de la connexion');
     } finally {
       setLoading(false);
     }
@@ -60,10 +60,10 @@ const Login = () => {
             color: '#1e293b',
             marginBottom: '0.5rem'
           }}>
-            Welcome Back
+            Bon Retour
           </h1>
           <p style={{ color: '#64748b' }}>
-            Sign in to Invoice Application
+            Connectez-vous à l'Application de Facturation
           </p>
         </div>
 
@@ -71,7 +71,7 @@ const Login = () => {
           <div className="form-group">
             <label className="form-label">
               <User size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-              Username
+              Nom d'utilisateur
             </label>
             <input
               type="text"
@@ -79,7 +79,7 @@ const Login = () => {
               value={formData.username}
               onChange={handleChange}
               className="form-input"
-              placeholder="Enter your username"
+              placeholder="Entrez votre nom d'utilisateur"
               required
             />
           </div>
@@ -87,7 +87,7 @@ const Login = () => {
           <div className="form-group">
             <label className="form-label">
               <Lock size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-              Password
+              Mot de passe
             </label>
             <input
               type="password"
@@ -95,7 +95,7 @@ const Login = () => {
               value={formData.password}
               onChange={handleChange}
               className="form-input"
-              placeholder="Enter your password"
+              placeholder="Entrez votre mot de passe"
               required
             />
           </div>
@@ -111,7 +111,7 @@ const Login = () => {
             ) : (
               <>
                 <LogIn size={16} />
-                Sign In
+                Se Connecter
               </>
             )}
           </button>
@@ -124,7 +124,7 @@ const Login = () => {
           borderTop: '1px solid #e5e7eb'
         }}>
           <p style={{ color: '#64748b' }}>
-            Don't have an account?{' '}
+            Vous n'avez pas de compte ?{' '}
             <Link
               to="/register"
               style={{
@@ -133,7 +133,7 @@ const Login = () => {
                 fontWeight: '500'
               }}
             >
-              Create one here
+              Créez-en un ici
             </Link>
           </p>
         </div>

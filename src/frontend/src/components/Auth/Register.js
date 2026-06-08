@@ -27,12 +27,12 @@ const Register = () => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters long');
+      toast.error('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
@@ -43,13 +43,13 @@ const Register = () => {
       const result = await register(registerData);
       
       if (result.success) {
-        toast.success('Account created successfully!');
+        toast.success('Compte créé avec succès !');
         navigate('/dashboard');
       } else {
         toast.error(result.error);
       }
     } catch (error) {
-      toast.error('An error occurred during registration');
+      toast.error('Une erreur est survenue lors de l\'inscription');
     } finally {
       setLoading(false);
     }
@@ -76,10 +76,10 @@ const Register = () => {
             color: '#1e293b',
             marginBottom: '0.5rem'
           }}>
-            Create Account
+            Créer un Compte
           </h1>
           <p style={{ color: '#64748b' }}>
-            Join us to start managing your invoices
+            Rejoignez-nous pour gérer vos factures
           </p>
         </div>
 
@@ -87,7 +87,7 @@ const Register = () => {
           <div className="form-group">
             <label className="form-label">
               <User size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-              Username
+              Nom d'utilisateur
             </label>
             <input
               type="text"
@@ -95,7 +95,7 @@ const Register = () => {
               value={formData.username}
               onChange={handleChange}
               className="form-input"
-              placeholder="Choose a username"
+              placeholder="Choisissez un nom d'utilisateur"
               required
             />
           </div>
@@ -103,7 +103,7 @@ const Register = () => {
           <div className="form-group">
             <label className="form-label">
               <Mail size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-              Email
+              Courriel
             </label>
             <input
               type="email"
@@ -111,7 +111,7 @@ const Register = () => {
               value={formData.email}
               onChange={handleChange}
               className="form-input"
-              placeholder="Enter your email"
+              placeholder="Entrez votre courriel"
               required
             />
           </div>
@@ -119,7 +119,7 @@ const Register = () => {
           <div className="form-group">
             <label className="form-label">
               <Building size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-              Company Name (Optional)
+              Nom de l'entreprise (Facultatif)
             </label>
             <input
               type="text"
@@ -127,14 +127,14 @@ const Register = () => {
               value={formData.company_name}
               onChange={handleChange}
               className="form-input"
-              placeholder="Your company name"
+              placeholder="Votre nom d'entreprise"
             />
           </div>
 
           <div className="form-group">
             <label className="form-label">
               <Lock size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-              Password
+              Mot de passe
             </label>
             <input
               type="password"
@@ -142,7 +142,7 @@ const Register = () => {
               value={formData.password}
               onChange={handleChange}
               className="form-input"
-              placeholder="Create a password"
+              placeholder="Créez un mot de passe"
               required
               minLength={6}
             />
@@ -151,7 +151,7 @@ const Register = () => {
           <div className="form-group">
             <label className="form-label">
               <Lock size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
-              Confirm Password
+              Confirmer le mot de passe
             </label>
             <input
               type="password"
@@ -159,7 +159,7 @@ const Register = () => {
               value={formData.confirmPassword}
               onChange={handleChange}
               className="form-input"
-              placeholder="Confirm your password"
+              placeholder="Confirmez votre mot de passe"
               required
             />
           </div>
@@ -175,7 +175,7 @@ const Register = () => {
             ) : (
               <>
                 <UserPlus size={16} />
-                Create Account
+                Créer un Compte
               </>
             )}
           </button>
@@ -188,7 +188,7 @@ const Register = () => {
           borderTop: '1px solid #e5e7eb'
         }}>
           <p style={{ color: '#64748b' }}>
-            Already have an account?{' '}
+            Vous avez déjà un compte ?{' '}
             <Link
               to="/login"
               style={{
@@ -197,7 +197,7 @@ const Register = () => {
                 fontWeight: '500'
               }}
             >
-              Sign in here
+              Connectez-vous ici
             </Link>
           </p>
         </div>
