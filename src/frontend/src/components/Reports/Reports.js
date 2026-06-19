@@ -9,16 +9,18 @@ import {
   TrendingUp,
   DollarSign,
   FileText,
-  Users
+  Users,
+  AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [qualityMetrics, setQualityMetrics] = useState(null);
   const [reportForm, setReportForm] = useState({
     report_type: 'monthly',
     start_date: '',
@@ -27,6 +29,7 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReports();
+    fetchQualityMetrics();
     setDefaultDates();
   }, []);
 
@@ -50,6 +53,15 @@ const Reports = () => {
       toast.error('Failed to load reports');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchQualityMetrics = async () => {
+    try {
+      const response = await reportsAPI.getQualityMetrics(60);
+      setQualityMetrics(response.data);
+    } catch (error) {
+      // Quality metrics are supplementary
     }
   };
 
@@ -454,6 +466,142 @@ const Reports = () => {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Invoice Quality Metrics */}
+      {qualityMetrics && qualityMetrics.total_invoices > 0 && (
+        <div className="card" style={{ marginTop: '2rem' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '2rem'
+          }}>
+            <AlertTriangle size={20} color="#f59e0b" />
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#1e293b' }}>
+              Invoice Quality Metrics (Last {qualityMetrics.period_days} Days)
+            </h3>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '1rem',
+            marginBottom: '2rem'
+          }}>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Overdue Rate</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#ef4444' }}>
+                {qualityMetrics.overdue_rate}%
+              </p>
+            </div>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Draft Stuck Rate</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#f59e0b' }}>
+                {qualityMetrics.draft_stuck_rate}%
+              </p>
+            </div>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Draft-to-Paid</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#10b981' }}>
+                {qualityMetrics.draft_to_paid_rate}%
+              </p>
+            </div>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Missing Email</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#8b5cf6' }}>
+                {qualityMetrics.missing_email_rate}%
+              </p>
+            </div>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Missing Address</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#8b5cf6' }}>
+                {qualityMetrics.missing_address_rate}%
+              </p>
+            </div>
+            <div style={{
+              padding: '1.25rem',
+              borderRadius: '0.5rem',
+              border: '1px solid #e5e7eb',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '0.5rem' }}>Missing Notes</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#8b5cf6' }}>
+                {qualityMetrics.missing_notes_rate}%
+              </p>
+            </div>
+          </div>
+
+          {/* Quality Metrics Bar Chart */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+            gap: '2rem'
+          }}>
+            <div>
+              <h4 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#1e293b', marginBottom: '1rem' }}>
+                Quality Breakdown
+              </h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={[
+                  { name: 'Overdue', value: qualityMetrics.overdue_rate },
+                  { name: 'Draft Stuck', value: qualityMetrics.draft_stuck_rate },
+                  { name: 'No Email', value: qualityMetrics.missing_email_rate },
+                  { name: 'No Address', value: qualityMetrics.missing_address_rate },
+                  { name: 'No Notes', value: qualityMetrics.missing_notes_rate }
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis unit="%" />
+                  <Tooltip formatter={(value) => [`${value}%`, 'Rate']} />
+                  <Bar dataKey="value" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {qualityMetrics.daily_trends && qualityMetrics.daily_trends.length > 0 && (
+              <div>
+                <h4 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#1e293b', marginBottom: '1rem' }}>
+                  Invoice Generation Trends
+                </h4>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={qualityMetrics.daily_trends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" stroke="#3b82f6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
