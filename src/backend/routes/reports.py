@@ -1,9 +1,13 @@
+import logging
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from sqlalchemy import func, and_
 from models import db, Invoice, Report, User
 import calendar
+
+logger = logging.getLogger(__name__)
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -19,7 +23,8 @@ def get_reports():
         }), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.exception("Unexpected error in get_reports")
+        return jsonify({'error': 'An internal server error occurred'}), 500
 
 @reports_bp.route('/generate', methods=['POST'])
 @jwt_required()
@@ -126,9 +131,18 @@ def generate_report():
             'report': report.to_dict()
         }), 201
         
-    except Exception as e:
+    except (ValueError, TypeError) as e:
+        logger.warning("Invalid input in generate_report: %s", e)
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Invalid date format. Expected YYYY-MM-DD'}), 400
+    except KeyError as e:
+        logger.warning("Missing field in generate_report: %s", e)
+        db.session.rollback()
+        return jsonify({'error': 'Missing required field in request'}), 400
+    except Exception as e:
+        logger.exception("Unexpected error in generate_report")
+        db.session.rollback()
+        return jsonify({'error': 'An internal server error occurred'}), 500
 
 @reports_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
@@ -178,7 +192,8 @@ def get_dashboard_data():
         return jsonify(dashboard_data), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.exception("Unexpected error in get_dashboard_data")
+        return jsonify({'error': 'An internal server error occurred'}), 500
 
 @reports_bp.route('/<int:report_id>', methods=['DELETE'])
 @jwt_required()
@@ -196,5 +211,6 @@ def delete_report(report_id):
         return jsonify({'message': 'Report deleted successfully'}), 200
         
     except Exception as e:
+        logger.exception("Unexpected error in delete_report")
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'An internal server error occurred'}), 500
