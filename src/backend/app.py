@@ -1,3 +1,5 @@
+import logging
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -6,6 +8,8 @@ from models import db
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
+
+logger = logging.getLogger(__name__)
 
 def create_app():
     app = Flask(__name__)
@@ -38,17 +42,17 @@ def create_app():
     # JWT error handlers
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_payload):
-        print(f"JWT Error: Token expired. Header: {jwt_header}, Payload: {jwt_payload}")
+        logger.warning("JWT token expired for sub=%s", jwt_payload.get("sub"))
         return jsonify({'error': 'Token has expired'}), 401
     
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
-        print(f"JWT Error: Invalid token. Error: {error}")
-        return jsonify({'error': 'Invalid token', 'debug': str(error)}), 401
+        logger.warning("Invalid JWT token: %s", error)
+        return jsonify({'error': 'Invalid token'}), 401
     
     @jwt.unauthorized_loader
     def missing_token_callback(error):
-        print(f"JWT Error: Missing token. Error: {error}")
+        logger.warning("Missing JWT token: %s", error)
         return jsonify({'error': 'Authorization token is required'}), 401
     
     # Create tables
