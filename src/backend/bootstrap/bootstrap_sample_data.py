@@ -90,7 +90,27 @@ def get_profile(base_url: str, token: str) -> tuple[Optional[int], dict]:
     return _http_request("GET", url, headers=headers)
 
 
+def _check_production_environment() -> Optional[str]:
+    """Return an error message if running in a production environment."""
+    env = os.environ.get("ENV", "").lower()
+    flask_env = os.environ.get("FLASK_ENV", "").lower()
+    if env == "production" or flask_env == "production":
+        return (
+            "ERROR: This bootstrap script must not be run in production environments.\n"
+            "It creates test users with known credentials which is a security risk.\n"
+            "Detected production environment via ENV or FLASK_ENV variable.\n"
+            "If you really need to run this, unset the ENV/FLASK_ENV variable first."
+        )
+    return None
+
+
 def main() -> int:
+    # Prevent accidental execution in production
+    prod_error = _check_production_environment()
+    if prod_error:
+        print(prod_error, file=sys.stderr)
+        return 1
+
     base_url = os.environ.get("API_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
     print(f"Using API base URL: {base_url}")
