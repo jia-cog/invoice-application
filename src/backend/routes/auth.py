@@ -1,6 +1,11 @@
+import logging
+
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from sqlalchemy.exc import IntegrityError, OperationalError
 from models import db, User
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -42,8 +47,13 @@ def register():
             'user': user.to_dict()
         }), 201
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'A conflict occurred. Please try again.'}), 409
+    except (OperationalError, Exception):
+        db.session.rollback()
+        logger.exception('Unexpected error in register handler')
+        return jsonify({'error': 'An internal error occurred'}), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -69,8 +79,9 @@ def login():
             'user': user.to_dict()
         }), 200
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except (OperationalError, Exception):
+        logger.exception('Unexpected error in login handler')
+        return jsonify({'error': 'An internal error occurred'}), 500
 
 @auth_bp.route('/profile', methods=['GET'])
 @jwt_required()
@@ -84,5 +95,6 @@ def get_profile():
         
         return jsonify({'user': user.to_dict()}), 200
         
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    except (OperationalError, Exception):
+        logger.exception('Unexpected error in profile handler')
+        return jsonify({'error': 'An internal error occurred'}), 500
