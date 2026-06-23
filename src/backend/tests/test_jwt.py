@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token, decode_token, get_jwt_identity
-from config import Config
+from config import TestConfig
 
 
 class TestJWTAuthentication(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestJWTAuthentication(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures before each test method."""
         self.app = Flask(__name__)
-        self.app.config.from_object(Config)
+        self.app.config.from_object(TestConfig)
         self.jwt = JWTManager(self.app)
         self.app_context = self.app.app_context()
         self.app_context.push()

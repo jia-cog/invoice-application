@@ -7,13 +7,25 @@ from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
 
-def create_app():
+def create_app(config_class=None):
     app = Flask(__name__)
-    app.config.from_object(Config)
-    
+    app.config.from_object(config_class or Config)
+
+    # Fail fast if required secret keys are not configured
+    if not app.config.get('JWT_SECRET_KEY'):
+        raise RuntimeError(
+            "JWT_SECRET_KEY environment variable is required but not set. "
+            "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+    if not app.config.get('SECRET_KEY'):
+        raise RuntimeError(
+            "SECRET_KEY environment variable is required but not set. "
+            "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+        )
+
     # Initialize extensions
     db.init_app(app)
-    CORS(app, origins=Config.CORS_ORIGINS)
+    CORS(app, origins=app.config.get('CORS_ORIGINS', ['*']))
     jwt = JWTManager(app)
     
     # Register blueprints
