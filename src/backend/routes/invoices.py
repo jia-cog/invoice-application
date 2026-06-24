@@ -1,8 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date
 from models import db, Invoice, InvoiceItem, User
 import uuid
+import csv
+import io
 
 invoices_bp = Blueprint('invoices', __name__)
 
@@ -171,4 +173,63 @@ def delete_invoice(invoice_id):
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+CSV_COLUMNS = [
+    'id', 'invoice_number', 'customer_name', 'customer_email',
+    'customer_address', 'issue_date', 'due_date', 'status',
+    'subtotal', 'tax_rate', 'tax_amount', 'total_amount',
+    'notes', 'created_at', 'updated_at'
+]
+
+
+def _invoices_to_csv(invoices):
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=CSV_COLUMNS)
+    writer.writeheader()
+    for invoice in invoices:
+        row = invoice.to_dict()
+        writer.writerow({col: row.get(col, '') for col in CSV_COLUMNS})
+    return output.getvalue()
+
+
+@invoices_bp.route('/export', methods=['GET'])
+@jwt_required()
+def export_invoices():
+    try:
+        user_id = int(get_jwt_identity())
+        invoices = Invoice.query.filter_by(user_id=user_id).order_by(Invoice.created_at.desc()).all()
+
+        csv_data = _invoices_to_csv(invoices)
+
+        return Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=invoices.csv'}
+        )
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@invoices_bp.route('/<int:invoice_id>/export', methods=['GET'])
+@jwt_required()
+def export_invoice(invoice_id):
+    try:
+        user_id = int(get_jwt_identity())
+        invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
+
+        if not invoice:
+            return jsonify({'error': 'Invoice not found'}), 404
+
+        csv_data = _invoices_to_csv([invoice])
+
+        return Response(
+            csv_data,
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename=invoice_{invoice_id}.csv'}
+        )
+
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
