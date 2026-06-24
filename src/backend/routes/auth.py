@@ -1,6 +1,20 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from functools import wraps
+
+from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from models import db, User
+
+
+def admin_required(fn):
+    """Decorator that requires a valid JWT with is_admin=True."""
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        claims = get_jwt()
+        if not claims.get('is_admin'):
+            return jsonify({'error': 'Admin access required'}), 403
+        return fn(*args, **kwargs)
+    return wrapper
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -34,7 +48,10 @@ def register():
         db.session.commit()
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={'is_admin': user.is_admin}
+        )
         
         return jsonify({
             'message': 'User created successfully',
@@ -61,7 +78,10 @@ def login():
             return jsonify({'error': 'Invalid credentials'}), 401
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={'is_admin': user.is_admin}
+        )
         
         return jsonify({
             'message': 'Login successful',
@@ -84,5 +104,45 @@ def get_profile():
         
         return jsonify({'user': user.to_dict()}), 200
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@auth_bp.route('/promote', methods=['POST'])
+@jwt_required()
+def promote_to_admin():
+    """Promote the current user to admin.
+
+    Requires a JSON body with ``promote_key`` matching the configured
+    ``JWT_SECRET_KEY``.  This is intentionally a low-ceremony gate for
+    local development; a production deployment should replace it with a
+    more robust authorization mechanism.
+    """
+    try:
+        data = request.get_json() or {}
+        promote_key = data.get('promote_key', '')
+
+        if promote_key != current_app.config['JWT_SECRET_KEY']:
+            return jsonify({'error': 'Invalid promote key'}), 403
+
+        user_id = int(get_jwt_identity())
+        user = User.query.get(user_id)
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        user.is_admin = True
+        db.session.commit()
+
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={'is_admin': user.is_admin}
+        )
+
+        return jsonify({
+            'message': 'User promoted to admin',
+            'access_token': access_token,
+            'user': user.to_dict()
+        }), 200
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500

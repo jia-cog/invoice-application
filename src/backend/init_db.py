@@ -20,7 +20,7 @@ def init_database():
         
         print("Database initialized successfully!")
         print("Tables created:")
-        print("- users")
+        print("- users (includes is_admin column)")
         print("- invoices")
         print("- invoice_items")
         print("- reports")
