@@ -98,6 +98,17 @@ class TestJWTAuthentication(unittest.TestCase):
         for claim in required_claims:
             self.assertIn(claim, decoded, f"Missing required claim: {claim}")
     
+    def test_token_includes_is_admin_claim(self):
+        """Test that an is_admin claim can be embedded and decoded from the token."""
+        for is_admin in (True, False):
+            token = create_access_token(
+                identity="42", additional_claims={'is_admin': is_admin}
+            )
+            decoded = decode_token(token)
+
+            self.assertIn('is_admin', decoded)
+            self.assertEqual(decoded['is_admin'], is_admin)
+
     def test_invalid_token_handling(self):
         """Test handling of invalid tokens."""
         invalid_token = "invalid.token.here"
