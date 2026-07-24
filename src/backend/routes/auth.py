@@ -4,6 +4,14 @@ from models import db, User
 
 auth_bp = Blueprint('auth', __name__)
 
+
+def _create_user_token(user):
+    """Create an access token for a user, embedding an is_admin claim."""
+    return create_access_token(
+        identity=str(user.id),
+        additional_claims={'is_admin': user.is_admin},
+    )
+
 @auth_bp.route('/register', methods=['POST'])
 def register():
     try:
@@ -34,7 +42,7 @@ def register():
         db.session.commit()
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = _create_user_token(user)
         
         return jsonify({
             'message': 'User created successfully',
@@ -61,7 +69,7 @@ def login():
             return jsonify({'error': 'Invalid credentials'}), 401
         
         # Create access token
-        access_token = create_access_token(identity=str(user.id))
+        access_token = _create_user_token(user)
         
         return jsonify({
             'message': 'Login successful',

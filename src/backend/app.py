@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from sqlalchemy import inspect, text
 from config import Config
 from models import db
 from routes.auth import auth_bp
@@ -54,8 +55,19 @@ def create_app():
     # Create tables
     with app.app_context():
         db.create_all()
+        _ensure_user_schema()
     
     return app
+
+
+def _ensure_user_schema():
+    """Add columns introduced after the initial schema for existing databases."""
+    columns = {col['name'] for col in inspect(db.engine).get_columns('user')}
+    if 'is_admin' not in columns:
+        with db.engine.begin() as conn:
+            conn.execute(
+                text('ALTER TABLE "user" ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0')
+            )
 
 if __name__ == '__main__':
     app = create_app()
