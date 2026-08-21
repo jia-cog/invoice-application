@@ -5,6 +5,49 @@ import json
 
 db = SQLAlchemy()
 
+
+class Tenant(db.Model):
+    """An isolated organization. Every business record belongs to exactly one tenant."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    slug = db.Column(db.String(80), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    memberships = db.relationship('TenantMembership', backref='tenant', lazy=True,
+                                  cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'slug': self.slug,
+            'created_at': self.created_at.isoformat()
+        }
+
+
+class TenantMembership(db.Model):
+    """Membership of a user in a tenant, with a role. A user may belong to many tenants."""
+    ROLES = ('owner', 'admin', 'member')
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    role = db.Column(db.String(20), nullable=False, default='member')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('tenant_id', 'user_id', name='uq_membership_tenant_user'),
+    )
+
+    def to_dict(self):
+        return {
+            'tenant_id': self.tenant_id,
+            'user_id': self.user_id,
+            'role': self.role,
+            'tenant': self.tenant.to_dict() if self.tenant else None
+        }
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -15,6 +58,11 @@ class User(db.Model):
     
     # Relationship with invoices
     invoices = db.relationship('Invoice', backref='user', lazy=True, cascade='all, delete-orphan')
+    memberships = db.relationship('TenantMembership', backref='user', lazy=True,
+                                  cascade='all, delete-orphan')
+
+    def membership_for(self, tenant_id):
+        return TenantMembership.query.filter_by(user_id=self.id, tenant_id=tenant_id).first()
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password, method='pbkdf2:sha256', salt_length=16)
@@ -33,7 +81,8 @@ class User(db.Model):
 
 class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
+    invoice_number = db.Column(db.String(50), nullable=False)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     
     # Customer information
@@ -59,6 +108,11 @@ class Invoice(db.Model):
     
     # Relationship with invoice items
     items = db.relationship('InvoiceItem', backref='invoice', lazy=True, cascade='all, delete-orphan')
+
+    # Invoice numbers only need to be unique within a tenant.
+    __table_args__ = (
+        db.UniqueConstraint('tenant_id', 'invoice_number', name='uq_invoice_tenant_number'),
+    )
     
     def calculate_totals(self):
         self.subtotal = sum(item.total for item in self.items)
@@ -69,6 +123,7 @@ class Invoice(db.Model):
         return {
             'id': self.id,
             'invoice_number': self.invoice_number,
+            'tenant_id': self.tenant_id,
             'customer_name': self.customer_name,
             'customer_email': self.customer_email,
             'customer_address': self.customer_address,
@@ -108,6 +163,7 @@ class InvoiceItem(db.Model):
 
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     report_type = db.Column(db.String(50), nullable=False)  # monthly, quarterly, yearly, custom
     start_date = db.Column(db.Date, nullable=False)
@@ -130,6 +186,7 @@ class Report(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'tenant_id': self.tenant_id,
             'report_type': self.report_type,
             'start_date': self.start_date.isoformat(),
             'end_date': self.end_date.isoformat(),
