@@ -1,0 +1,3 @@
+[MAIN]
+# Alembic migrations are generated from templates and are not hand-maintained code.
+ignore-paths=.*/migrations/.*

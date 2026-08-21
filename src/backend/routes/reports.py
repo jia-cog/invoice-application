@@ -1,18 +1,16 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime, date, timedelta
-from sqlalchemy import func, and_
-from models import db, Invoice, Report, User
-import calendar
+from flask import Blueprint, request, jsonify, g
+from datetime import datetime, date
+from sqlalchemy import and_
+from models import db, Invoice, Report
+from tenancy import tenant_query, tenant_required
 
 reports_bp = Blueprint('reports', __name__)
 
 @reports_bp.route('/', methods=['GET'])
-@jwt_required()
+@tenant_required
 def get_reports():
     try:
-        user_id = int(get_jwt_identity())
-        reports = Report.query.filter_by(user_id=user_id).order_by(Report.created_at.desc()).all()
+        reports = tenant_query(Report).order_by(Report.created_at.desc()).all()
         
         return jsonify({
             'reports': [report.to_dict() for report in reports]
@@ -22,10 +20,9 @@ def get_reports():
         return jsonify({'error': str(e)}), 500
 
 @reports_bp.route('/generate', methods=['POST'])
-@jwt_required()
+@tenant_required
 def generate_report():
     try:
-        user_id = int(get_jwt_identity())
         data = request.get_json()
         
         # Validate required fields
@@ -36,9 +33,8 @@ def generate_report():
         end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
         
         # Get invoices in the date range
-        invoices = Invoice.query.filter(
+        invoices = tenant_query(Invoice).filter(
             and_(
-                Invoice.user_id == user_id,
                 Invoice.issue_date >= start_date,
                 Invoice.issue_date <= end_date
             )
@@ -111,7 +107,8 @@ def generate_report():
         
         # Save report to database
         report = Report(
-            user_id=user_id,
+            tenant_id=g.tenant_id,
+            user_id=g.user.id,
             report_type=data['report_type'],
             start_date=start_date,
             end_date=end_date
@@ -131,22 +128,17 @@ def generate_report():
         return jsonify({'error': str(e)}), 500
 
 @reports_bp.route('/dashboard', methods=['GET'])
-@jwt_required()
+@tenant_required
 def get_dashboard_data():
     try:
-        user_id = int(get_jwt_identity())
-        
         # Get current month data
         today = date.today()
         start_of_month = today.replace(day=1)
         
-        # Get all invoices for the user
-        all_invoices = Invoice.query.filter_by(user_id=user_id).all()
-        current_month_invoices = Invoice.query.filter(
-            and_(
-                Invoice.user_id == user_id,
-                Invoice.issue_date >= start_of_month
-            )
+        # Get all invoices for the tenant
+        all_invoices = tenant_query(Invoice).all()
+        current_month_invoices = tenant_query(Invoice).filter(
+            Invoice.issue_date >= start_of_month
         ).all()
         
         # Calculate metrics
@@ -159,7 +151,7 @@ def get_dashboard_data():
         overdue_invoices = [inv for inv in all_invoices if inv.status == 'overdue']
         
         # Recent invoices (last 5)
-        recent_invoices = Invoice.query.filter_by(user_id=user_id).order_by(
+        recent_invoices = tenant_query(Invoice).order_by(
             Invoice.created_at.desc()
         ).limit(5).all()
         
@@ -181,11 +173,10 @@ def get_dashboard_data():
         return jsonify({'error': str(e)}), 500
 
 @reports_bp.route('/<int:report_id>', methods=['DELETE'])
-@jwt_required()
+@tenant_required
 def delete_report(report_id):
     try:
-        user_id = int(get_jwt_identity())
-        report = Report.query.filter_by(id=report_id, user_id=user_id).first()
+        report = tenant_query(Report).filter_by(id=report_id).first()
         
         if not report:
             return jsonify({'error': 'Report not found'}), 404

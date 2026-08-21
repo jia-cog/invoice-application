@@ -1,19 +1,21 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
 from config import Config
 from models import db
 from routes.auth import auth_bp
 from routes.invoices import invoices_bp
 from routes.reports import reports_bp
 
-def create_app():
+def create_app(config_object=Config):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_object)
     
     # Initialize extensions
     db.init_app(app)
-    CORS(app, origins=Config.CORS_ORIGINS)
+    Migrate(app, db)
+    CORS(app, origins=app.config['CORS_ORIGINS'])
     jwt = JWTManager(app)
     
     # Register blueprints
@@ -50,10 +52,6 @@ def create_app():
     def missing_token_callback(error):
         print(f"JWT Error: Missing token. Error: {error}")
         return jsonify({'error': 'Authorization token is required'}), 401
-    
-    # Create tables
-    with app.app_context():
-        db.create_all()
     
     return app
 

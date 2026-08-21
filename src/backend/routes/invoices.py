@@ -1,17 +1,16 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime, date
-from models import db, Invoice, InvoiceItem, User
+from flask import Blueprint, request, jsonify, g
+from datetime import datetime
+from models import db, Invoice, InvoiceItem
+from tenancy import tenant_query, tenant_required
 import uuid
 
 invoices_bp = Blueprint('invoices', __name__)
 
 @invoices_bp.route('/', methods=['GET'])
-@jwt_required()
+@tenant_required
 def get_invoices():
     try:
-        user_id = int(get_jwt_identity())
-        invoices = Invoice.query.filter_by(user_id=user_id).order_by(Invoice.created_at.desc()).all()
+        invoices = tenant_query(Invoice).order_by(Invoice.created_at.desc()).all()
         
         return jsonify({
             'invoices': [invoice.to_dict() for invoice in invoices]
@@ -21,11 +20,10 @@ def get_invoices():
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['GET'])
-@jwt_required()
+@tenant_required
 def get_invoice(invoice_id):
     try:
-        user_id = int(get_jwt_identity())
-        invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
+        invoice = tenant_query(Invoice).filter_by(id=invoice_id).first()
         
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
@@ -36,10 +34,9 @@ def get_invoice(invoice_id):
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/', methods=['POST'])
-@jwt_required()
+@tenant_required
 def create_invoice():
     try:
-        user_id = int(get_jwt_identity())
         data = request.get_json()
         
         # Validate required fields
@@ -54,7 +51,8 @@ def create_invoice():
         # Create invoice
         invoice = Invoice(
             invoice_number=invoice_number,
-            user_id=user_id,
+            tenant_id=g.tenant_id,
+            user_id=g.user.id,
             customer_name=data['customer_name'],
             customer_email=data.get('customer_email', ''),
             customer_address=data.get('customer_address', ''),
@@ -96,11 +94,10 @@ def create_invoice():
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['PUT'])
-@jwt_required()
+@tenant_required
 def update_invoice(invoice_id):
     try:
-        user_id = int(get_jwt_identity())
-        invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
+        invoice = tenant_query(Invoice).filter_by(id=invoice_id).first()
         
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404
@@ -155,11 +152,10 @@ def update_invoice(invoice_id):
         return jsonify({'error': str(e)}), 500
 
 @invoices_bp.route('/<int:invoice_id>', methods=['DELETE'])
-@jwt_required()
+@tenant_required
 def delete_invoice(invoice_id):
     try:
-        user_id = int(get_jwt_identity())
-        invoice = Invoice.query.filter_by(id=invoice_id, user_id=user_id).first()
+        invoice = tenant_query(Invoice).filter_by(id=invoice_id).first()
         
         if not invoice:
             return jsonify({'error': 'Invoice not found'}), 404

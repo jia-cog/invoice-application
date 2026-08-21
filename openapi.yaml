@@ -25,9 +25,44 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT token obtained from login endpoint
+      description: >
+        JWT token obtained from login endpoint. The token carries a `tenant_id` claim;
+        every request is scoped to that tenant, and tokens without the claim are rejected.
 
   schemas:
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Acme Corp"
+        slug:
+          type: string
+          example: "acme-corp"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+
+    TenantMembership:
+      type: object
+      properties:
+        tenant_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        role:
+          type: string
+          enum: [owner, admin, member]
+          example: "owner"
+        tenant:
+          $ref: '#/components/schemas/Tenant'
+
     User:
       type: object
       properties:
@@ -57,7 +92,11 @@ components:
           example: 1
         invoice_number:
           type: string
+          description: Unique within a tenant
           example: "INV-20240115-A1B2C3D4"
+        tenant_id:
+          type: integer
+          example: 1
         customer_name:
           type: string
           example: "ABC Company"
@@ -318,7 +357,9 @@ paths:
       tags:
         - Authentication
       summary: Register a new user
-      description: Create a new user account
+      description: >
+        Create a new user account together with its own tenant, owned by that user.
+        The returned token is scoped to the new tenant.
       security: []
       requestBody:
         required: true
@@ -345,6 +386,10 @@ paths:
                 company_name:
                   type: string
                   example: "Acme Corp"
+                tenant_name:
+                  type: string
+                  description: Name for the tenant created on registration; defaults to company_name
+                  example: "Acme Corp"
       responses:
         '201':
           description: User created successfully
@@ -361,6 +406,8 @@ paths:
                     example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
                   user:
                     $ref: '#/components/schemas/User'
+                  tenant:
+                    $ref: '#/components/schemas/Tenant'
         '400':
           description: Bad request (missing fields or user already exists)
           content:
@@ -379,7 +426,9 @@ paths:
       tags:
         - Authentication
       summary: User login
-      description: Authenticate user and get access token
+      description: >
+        Authenticate user and get an access token scoped to a tenant. Without `tenant_slug`
+        the user's oldest tenant membership is used.
       security: []
       requestBody:
         required: true
@@ -398,6 +447,10 @@ paths:
                   type: string
                   format: password
                   example: "securePassword123"
+                tenant_slug:
+                  type: string
+                  description: Tenant to scope the token to; must be one the user belongs to
+                  example: "acme-corp"
       responses:
         '200':
           description: Login successful
@@ -414,6 +467,8 @@ paths:
                     example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
                   user:
                     $ref: '#/components/schemas/User'
+                  tenant:
+                    $ref: '#/components/schemas/Tenant'
         '400':
           description: Bad request (missing username or password)
           content:
@@ -422,6 +477,106 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: User has no access to the requested tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/tenants:
+    get:
+      tags:
+        - Authentication
+      summary: List the caller's tenants
+      description: Tenants the authenticated user is a member of, with their role in each
+      responses:
+        '200':
+          description: Memberships retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TenantMembership'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/tenants/switch:
+    post:
+      tags:
+        - Authentication
+      summary: Switch active tenant
+      description: Issue a new access token scoped to another tenant the caller belongs to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tenant_id:
+                  type: integer
+                  example: 2
+                tenant_slug:
+                  type: string
+                  example: "globex"
+      responses:
+        '200':
+          description: Token issued for the requested tenant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                  tenant:
+                    $ref: '#/components/schemas/Tenant'
+        '400':
+          description: Bad request (tenant_id or tenant_slug required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: No access to this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Tenant not found
           content:
             application/json:
               schema:

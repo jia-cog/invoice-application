@@ -3,7 +3,8 @@ from datetime import timedelta
 
 class Config:
     # Database configuration
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///invoice_app.db'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+        'postgresql+psycopg2://invoice:invoice@localhost:5432/invoice_app'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # JWT configuration
