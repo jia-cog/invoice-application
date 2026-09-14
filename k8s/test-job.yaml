@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: invoice-backend-tests
+  labels:
+    app: invoice-application
+    component: backend-tests
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: invoice-application
+        component: backend-tests
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: tests
+          image: invoice-backend-tests:latest
+          # Use a registry-pushed image + Always for real clusters; IfNotPresent
+          # lets a locally built image work with kind/minikube.
+          imagePullPolicy: IfNotPresent
+          workingDir: /app/src/backend
+          command: ["python3", "tests/run_tests.py"]
+          envFrom:
+            - configMapRef:
+                name: invoice-backend-test-config
+            - secretRef:
+                name: invoice-backend-test-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invoice-backend-test-config
+data:
+  # Tests only need an in-memory-style config; use a throwaway SQLite file so
+  # nothing outside the pod is touched.
+  DATABASE_URL: "sqlite:///invoice_app_test.db"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: invoice-backend-test-secrets
+type: Opaque
+stringData:
+  # Dummy values for test runs only. Replace before reusing for anything else.
+  JWT_SECRET_KEY: "test-jwt-secret-key"
+  SECRET_KEY: "test-flask-secret-key"
