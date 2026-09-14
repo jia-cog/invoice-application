@@ -32,6 +32,48 @@ python3 tests/test_jwt.py
 python3 -m unittest discover tests -v
 ```
 
+## Running Tests on Kubernetes
+
+The test harness can also run as a Kubernetes `Job` using the image defined in
+`src/backend/Dockerfile.test` and the manifests in `k8s/`.
+
+### 1. Build the test image
+```bash
+# From the repository root (requirements.txt lives there)
+docker build -f src/backend/Dockerfile.test -t invoice-backend-tests:latest .
+
+# For a real cluster, tag and push to your registry, then update the image in
+# k8s/test-job.yaml (and set imagePullPolicy: Always):
+#   docker tag invoice-backend-tests:latest <registry>/invoice-backend-tests:<tag>
+#   docker push <registry>/invoice-backend-tests:<tag>
+# For kind:      kind load docker-image invoice-backend-tests:latest
+# For minikube:  minikube image load invoice-backend-tests:latest
+```
+
+### 2. Apply the config and Job
+```bash
+kubectl apply -f k8s/test-config.yaml   # ConfigMap (DATABASE_URL) + Secret (JWT_SECRET_KEY, SECRET_KEY)
+kubectl apply -f k8s/test-job.yaml
+```
+
+### 3. View results
+```bash
+kubectl wait --for=condition=complete --timeout=120s job/invoice-backend-tests
+kubectl logs job/invoice-backend-tests
+```
+
+A failing test run exits non-zero, so the Job is marked `Failed`
+(`restartPolicy: Never`, `backoffLimit: 1`). Check with
+`kubectl get job invoice-backend-tests`.
+
+### Re-running
+Jobs are immutable, so delete before re-applying (the Job also auto-cleans
+after one hour via `ttlSecondsAfterFinished`):
+```bash
+kubectl delete job invoice-backend-tests
+kubectl apply -f k8s/test-job.yaml
+```
+
 ## Test Categories
 
 ### JWT Authentication Tests (`test_jwt.py`)
